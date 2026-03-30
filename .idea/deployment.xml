@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@172.26.14.81:30278 zihua-IETP" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@172.26.14.81:30594 sain" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
       <paths name="root@172.26.14.81:30278 zihua-IETP">
@@ -48,7 +48,7 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="root@172.26.14.81:30594 password">
+      <paths name="root@172.26.14.81:30594 sain">
         <serverdata>
           <mappings>
             <mapping deploy="/home/sain" local="$PROJECT_DIR$" />

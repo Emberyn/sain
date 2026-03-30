@@ -20,7 +20,7 @@ class Config(dict):
         """
         super().__init__()
         # 读取YAML配置文件内容
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             self._yaml = f.read()  # 保存原始YAML文本（用于打印）
             self._dict = yaml.safe_load(self._yaml)  # 解析为字典
             # 自动添加配置文件所在路径到配置中（便于加载相对路径资源）

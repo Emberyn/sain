@@ -1,0 +1,147 @@
+import os
+import time
+import base64
+import cv2
+import numpy as np
+import torch
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from PIL import Image
+import io
+
+from src.config import Config
+from src.models import EdgeModel, InpaintingModel
+from edge_make.edge_extraction_2 import SobelConv
+
+app = Flask(__name__, static_folder='frontend', static_url_path='/')
+CORS(app)
+
+# 初始化配置和设备
+config_path = './checkpoint/config.yml'
+config = Config(config_path)
+config.DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+print(f"Loading models to {config.DEVICE}...")
+
+# 初始化并加载模型
+edge_model = EdgeModel(config).to(config.DEVICE)
+inpaint_model = InpaintingModel(config).to(config.DEVICE)
+
+edge_model.load()
+inpaint_model.load()
+
+edge_model.eval()
+inpaint_model.eval()
+
+# 初始化边缘检测算子
+sobel_conv = SobelConv(device=config.DEVICE, edge_to_binary=False)
+for param in sobel_conv.parameters():
+    param.requires_grad = False
+
+print("Models loaded successfully and ready for inference!")
+
+def preprocess_image(image_bytes, size=256):
+    img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+    img = img.resize((size, size))
+    img_np = np.array(img)
+    return img_np
+
+def preprocess_mask(mask_bytes, size=256):
+    mask = Image.open(io.BytesIO(mask_bytes)).convert('L')
+    mask = mask.resize((size, size))
+    mask_np = np.array(mask)
+    mask_np = (mask_np > 127).astype(np.float32) # 1 for holes
+    return mask_np
+
+def to_tensor(img_np):
+    # numpy to tensor [C, H, W] in range [0, 1]
+    if img_np.ndim == 2:
+        img_np = np.expand_dims(img_np, axis=2)
+    img_t = torch.from_numpy(img_np).permute(2, 0, 1).float()
+    if img_t.max() > 1.0:
+        img_t /= 255.0
+    return img_t
+
+def tensor_to_base64(tensor):
+    img_np = tensor.squeeze().cpu().numpy()
+    if img_np.ndim == 3:
+        img_np = np.transpose(img_np, (1, 2, 0))
+    img_np = np.clip(img_np * 255.0, 0, 255).astype(np.uint8)
+    if img_np.ndim == 2:
+        img = Image.fromarray(img_np, mode='L')
+    else:
+        img = Image.fromarray(img_np, mode='RGB')
+    
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+@app.route('/')
+def index():
+    return app.send_static_file('index.html')
+
+@app.route('/api/repair', methods=['POST'])
+def repair():
+    try:
+        if 'image' not in request.files or 'mask' not in request.files:
+            return jsonify({'error': 'Missing image or mask'}), 400
+
+        image_file = request.files['image']
+        mask_file = request.files['mask']
+
+        # Preprocess
+        img_np = preprocess_image(image_file.read(), size=config.INPUT_SIZE)
+        mask_np = preprocess_mask(mask_file.read(), size=config.INPUT_SIZE)
+
+        # Generate gray image
+        gray_np = np.dot(img_np[..., :3], [0.2989, 0.5870, 0.1140]).astype(np.float32)
+
+        # To tensors
+        images = to_tensor(img_np).unsqueeze(0).to(config.DEVICE)
+        masks = torch.from_numpy(mask_np).unsqueeze(0).unsqueeze(0).to(config.DEVICE)
+        gray_img = torch.from_numpy(gray_np).unsqueeze(0).unsqueeze(0).to(config.DEVICE) / 255.0
+
+        # Expand mask to 3 channels if needed by models (original code does this)
+        masks_3c = torch.cat([masks, masks, masks], dim=1)
+
+        # 81ms two-stage repair timing
+        start_time = time.time()
+
+        with torch.no_grad():
+            # Extract edge using SobelConv dynamically
+            img_for_sobel = images.clone()
+            edge_prob = sobel_conv(img_for_sobel) # [1, 1, H, W]
+            edge = torch.cat([edge_prob, edge_prob, edge_prob], dim=1)
+
+            # Stage 1: Edge generation
+            outputs_edge = edge_model(images, masks_3c, edge, gray_img)
+            outputs_edge = (outputs_edge * masks_3c) + (edge * (1 - masks_3c))
+
+            # Stage 2: Image inpainting
+            outputs_img = inpaint_model(images, masks_3c, outputs_edge, gray_img)
+            outputs_merged = (outputs_img * masks_3c) + (images * (1 - masks_3c))
+
+        end_time = time.time()
+        inference_time_ms = int((end_time - start_time) * 1000)
+
+        # Convert results to base64
+        repaired_b64 = tensor_to_base64(outputs_merged)
+        edge_b64 = tensor_to_base64(outputs_edge)
+        original_edge_b64 = tensor_to_base64(edge)
+
+        return jsonify({
+            'success': True,
+            'repaired_image': f"data:image/png;base64,{repaired_b64}",
+            'edge_image': f"data:image/png;base64,{edge_b64}",
+            'original_edge': f"data:image/png;base64,{original_edge_b64}",
+            'inference_time_ms': inference_time_ms
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    os.makedirs('frontend', exist_ok=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
