@@ -732,7 +732,7 @@ class Downsample(nn.Module):
         # 获取下采样后的维度
         b, n, h, w = out.shape
         # 创建融合张量（初始化为0）：[B, 2*n, h, w]
-        t = torch.zeros((b, 2 * n, h, w)).cuda()
+        t = torch.zeros((b, 2 * n, h, w)).to(x.device)
 
         # 填充特征部分：偶数通道填充特征
         for i in range(n):
