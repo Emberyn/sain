@@ -108,6 +108,7 @@
         }
         #imageCanvas { z-index: 1; }
         #maskCanvas { z-index: 2; opacity: 0.6; }
+        #previewCanvas { z-index: 3; pointer-events: none; }
         
         .result-panel {
             text-align: center;
@@ -150,6 +151,56 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+        .tool-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 5px 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .tool-btn:hover {
+            border-color: var(--secondary-color);
+        }
+        .tool-btn.active {
+            background: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
+        .canvas-container.zoomed {
+            overflow: hidden;
+            cursor: grab;
+        }
+        .canvas-container.zoomed:active {
+            cursor: grabbing;
+        }
+        .shape-params {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            padding: 5px 10px;
+            background: #fff3e0;
+            border-radius: 6px;
+        }
+        .shape-params label {
+            font-size: 14px;
+        }
+        .shape-params input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
         .upload-zone {
             border: 3px dashed var(--secondary-color);
@@ -219,6 +270,37 @@
             text-align: center;
             font-size: 12px;
             background: #f5f5f5;
+        }
+        .thumbnail-item .delete-btn {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 28px;
+            height: 28px;
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            z-index: 10;
+            line-height: 0;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .thumbnail-item:hover .delete-btn {
+            opacity: 1;
+        }
+        .thumbnail-item .delete-btn:hover {
+            background: #d32f2f;
+            transform: scale(1.1);
         }
         .progress-bar {
             width: 100%;
@@ -308,14 +390,45 @@
 
     <div id="editorSection" class="hidden">
         <h3 style="margin-top: 30px;">当前编辑: <span id="currentImageName"></span></h3>
+        
+        <!-- 工具选择栏 -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+            <div class="tool-selector">
+                <span style="font-weight: bold;">工具:</span>
+                <button class="tool-btn active" id="brushTool" onclick="setTool('brush')">🖌️ 画笔</button>
+                <button class="tool-btn" id="eraserTool" onclick="setTool('eraser')">🧹 橡皮擦</button>
+                <button class="tool-btn" id="handTool" onclick="setTool('hand')">↖️ 拖动放大</button>
+                <button class="tool-btn" id="circleTool" onclick="setTool('circle')">⭕ 圆形</button>
+                <button class="tool-btn" id="ellipseTool" onclick="setTool('ellipse')">🔵 椭圆</button>
+                <button class="tool-btn" id="rectTool" onclick="setTool('rect')">⬛ 矩形</button>
+                <button class="tool-btn" id="triangleTool" onclick="setTool('triangle')">🔺 三角形</button>
+            </div>
+            
+            <div class="shape-params" id="shapeParams" style="display: none;">
+                <span style="font-weight: bold;">形状参数:</span>
+                <div>
+                    <label>宽:</label>
+                    <input type="number" id="shapeWidth" value="30" min="10" max="100">
+                </div>
+                <div>
+                    <label>高:</label>
+                    <input type="number" id="shapeHeight" value="20" min="10" max="100">
+                </div>
+            </div>
+        </div>
+        
         <div class="workspace">
             <div class="result-panel">
                 <div class="canvas-container" id="editorContainer">
                     <canvas id="imageCanvas" width="256" height="256"></canvas>
                     <canvas id="maskCanvas" width="256" height="256"></canvas>
+                    <canvas id="previewCanvas" width="256" height="256"></canvas>
                 </div>
                 <div class="result-label">原始图片 (涂抹破损处)</div>
-                <button class="btn" style="margin-top: 10px;" onclick="saveCurrentMask()">保存遮罩并返回</button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn" onclick="saveCurrentMask()">保存遮罩并返回</button>
+                    <button class="btn" style="background-color: #f44336;" onclick="clearMask()">清除遮罩</button>
+                </div>
             </div>
 
             <div class="result-panel">
@@ -367,8 +480,10 @@
     const editorSection = document.getElementById('editorSection');
     const imageCanvas = document.getElementById('imageCanvas');
     const maskCanvas = document.getElementById('maskCanvas');
+    const previewCanvas = document.getElementById('previewCanvas');
     const imgCtx = imageCanvas.getContext('2d');
     const maskCtx = maskCanvas.getContext('2d');
+    const previewCtx = previewCanvas.getContext('2d');
     const brushSizeInput = document.getElementById('brushSize');
     const statusPanel = document.getElementById('statusPanel');
     const repairBtn = document.getElementById('repairBtn');
@@ -389,11 +504,38 @@
     let currentImageIndex = -1;
     let isDrawing = false;
     let batchResults = [];
+    
+    // 画笔位置变量
+    let brushX = 128; // 初始X位置（画布中心）
+    let brushY = 128; // 初始Y位置（画布中心）
+    const stepSize = 5; // 每次移动的步长
+    
+    // 图形工具相关
+    let currentTool = 'brush'; // 当前工具: brush, eraser, hand, circle, ellipse, rect, triangle
+    let isShapeDrawing = false; // 是否正在绘制形状
+    let shapeStartX = 0;
+    let shapeStartY = 0;
+    
+    // 缩放和平移相关
+    let scale = 1; // 当前缩放比例
+    let translateX = 0; // X轴平移
+    let translateY = 0; // Y轴平移
+    let isPanning = false; // 是否正在平移
+    let panStartX = 0; // 平移起始X
+    let panStartY = 0; // 平移起始Y
 
     maskCtx.fillStyle = 'rgba(0,0,0,0)';
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
 
     uploadInput.addEventListener('change', handleFiles);
+    
+    // 为编辑器容器添加滚轮和平移事件
+    const editorContainer = document.getElementById('editorContainer');
+    editorContainer.addEventListener('wheel', handleWheel, { passive: false });
+    editorContainer.addEventListener('mousedown', startPan);
+    editorContainer.addEventListener('mousemove', pan);
+    editorContainer.addEventListener('mouseup', endPan);
+    editorContainer.addEventListener('mouseleave', endPan);
 
     function handleUploadClick() {
         // 只有在修复完成后，才清除所有数据
@@ -464,6 +606,18 @@
         uploadedImages.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'thumbnail-item' + (item.completed ? ' completed' : '') + (index === currentImageIndex ? ' active' : '');
+            
+            // 删除按钮
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation(); // 阻止触发缩略图点击事件
+                deleteImage(index);
+            };
+            div.appendChild(deleteBtn);
+            
+            // 图片
             div.onclick = () => openEditor(index);
             
             const img = document.createElement('img');
@@ -481,15 +635,58 @@
         checkCanRepair();
     }
 
+    function deleteImage(index) {
+        // 确认删除
+        const itemName = uploadedImages[index].file.name;
+        if (!confirm(`确定要删除图片 "${itemName}" 吗？`)) {
+            return;
+        }
+        
+        uploadedImages.splice(index, 1);
+        
+        // 如果当前正在编辑这张图片，关闭编辑器
+        if (currentImageIndex === index) {
+            currentImageIndex = -1;
+            editorSection.classList.add('hidden');
+            thumbnailSection.classList.remove('hidden');
+        } else if (currentImageIndex > index) {
+            // 调整当前编辑索引
+            currentImageIndex--;
+        }
+        
+        updateThumbnailGrid();
+        
+        if (uploadedImages.length === 0) {
+            thumbnailSection.classList.add('hidden');
+            uploadZone.style.display = 'block';
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 已删除图片。请重新上传。';
+        } else {
+            statusPanel.innerHTML = `<strong>系统状态：</strong> 已删除图片，当前剩余 ${uploadedImages.length} 张图片。`;
+        }
+        
+        // 清空文件输入框，允许重新上传相同文件
+        uploadInput.value = '';
+    }
+
     function openEditor(index) {
         currentImageIndex = index;
         const item = uploadedImages[index];
-        
+                
+        // 重置画笔位置到画布中心
+        brushX = imageCanvas.width / 2;
+        brushY = imageCanvas.height / 2;
+            
+        // 重置缩放和平移
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        updateCanvasTransform();
+                
         currentImageName.textContent = item.file.name;
-        
+                
         imgCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
         imgCtx.drawImage(item.image, 0, 0, imageCanvas.width, imageCanvas.height);
-        
+                
         maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
         if (item.mask) {
             maskCtx.putImageData(item.mask, 0, 0);
@@ -497,12 +694,12 @@
             maskCtx.fillStyle = 'rgba(0,0,0,0)';
             maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
         }
-        
+                
         thumbnailSection.classList.add('hidden');
         editorSection.classList.remove('hidden');
         resultsSection.classList.add('hidden');
-        
-        statusPanel.innerHTML = '<strong>系统状态：</strong> 请在图片上涂抹需要修复的病斑或破损区域，然后点击“保存遮罩并返回”。';
+                
+        statusPanel.innerHTML = '<strong>系统状态：</strong> 请在图片上涂抹需要修复的病斑或破损区域。使用"手型"工具可以缩放和平移图片，方便绘制细节。';
     }
 
     function saveCurrentMask() {
@@ -511,16 +708,24 @@
             uploadedImages[currentImageIndex].completed = true;
             updateThumbnailGrid();
         }
-        
+                
         editorSection.classList.add('hidden');
         thumbnailSection.classList.remove('hidden');
-        
+                
         const remaining = uploadedImages.filter(img => !img.completed).length;
         if (remaining === 0) {
             statusPanel.innerHTML = '<strong>系统状态：</strong> 所有图片遮罩已完成！点击“一键智能修复”开始处理。';
         } else {
             statusPanel.innerHTML = `<strong>系统状态：</strong> 还有 ${remaining} 张图片需要绘制遮罩。`;
         }
+    }
+    
+    function clearMask() {
+        // 清除当前遮罩
+        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        maskCtx.fillStyle = 'rgba(0,0,0,0)';
+        maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+        statusPanel.innerHTML = '<strong>系统状态：</strong> 遮罩已清除，请重新绘制。';
     }
 
     function checkCanRepair() {
@@ -561,17 +766,72 @@
 
     maskCanvas.addEventListener('mousedown', function(e) {
         if (currentImageIndex < 0) return;
-        isDrawing = true;
-        draw(e);
+        
+        // 手型模式下不处理绘制
+        if (currentTool === 'hand') return;
+        
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+            // 画笔和橡皮擦工具：拖拽时连续绘制
+            isDrawing = true;
+            const pos = getMousePos(maskCanvas, e);
+            brushX = pos.x;
+            brushY = pos.y;
+            draw(e);
+        } else {
+            // 图形工具：鼠标拖拽绘制形状
+            isShapeDrawing = true;
+            const pos = getMousePos(maskCanvas, e);
+            shapeStartX = pos.x;
+            shapeStartY = pos.y;
+        }
     });
 
     maskCanvas.addEventListener('mousemove', function(e) {
-        if (!isDrawing || currentImageIndex < 0) return;
-        draw(e);
+        if (currentImageIndex < 0) return;
+        
+        // 手型模式下不处理绘制
+        if (currentTool === 'hand') return;
+        
+        const pos = getMousePos(maskCanvas, e);
+        
+        // 始终更新光标显示（画笔和橡皮擦）
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+            updateCursor(pos.x, pos.y);
+        }
+        
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+            // 画笔和橡皮擦：拖拽时连续绘制
+            if (!isDrawing) return;
+            draw(e);
+        } else if (isShapeDrawing) {
+            // 图形工具：拖拽时预览形状
+            previewShapeOnCanvas(shapeStartX, shapeStartY, pos.x, pos.y);
+        }
     });
 
-    maskCanvas.addEventListener('mouseup', () => isDrawing = false);
-    maskCanvas.addEventListener('mouseout', () => isDrawing = false);
+    maskCanvas.addEventListener('mouseup', function(e) {
+        if (currentTool !== 'brush' && isShapeDrawing) {
+            // 图形工具：释放鼠标时完成形状绘制
+            const pos = getMousePos(maskCanvas, e);
+            drawShapeByDrag(shapeStartX, shapeStartY, pos.x, pos.y);
+            isShapeDrawing = false;
+            // 清除预览画布
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        }
+        isDrawing = false;
+    });
+    
+    maskCanvas.addEventListener('mouseout', function(e) {
+        if (currentTool !== 'brush' && isShapeDrawing) {
+            // 鼠标离开画布时完成形状绘制
+            const pos = getMousePos(maskCanvas, e);
+            drawShapeByDrag(shapeStartX, shapeStartY, pos.x, pos.y);
+            isShapeDrawing = false;
+            // 清除预览画布
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        }
+        isDrawing = false;
+    });
 
     function getMousePos(canvas, evt) {
         const rect = canvas.getBoundingClientRect();
@@ -585,11 +845,393 @@
 
     function draw(e) {
         const pos = getMousePos(maskCanvas, e);
+        brushX = pos.x;
+        brushY = pos.y;
+        
+        // 获取基础画笔大小，并根据缩放比例调整
+        const baseSize = parseInt(brushSizeInput.value);
+        // 画笔大小应该与缩放成反比：放大时画笔覆盖更少像素
+        const size = baseSize / scale;
+        
+        if (currentTool === 'eraser') {
+            // 橡皮擦：使用 destination-out 混合模式擦除
+            maskCtx.save();
+            maskCtx.globalCompositeOperation = 'destination-out';
+            maskCtx.beginPath();
+            maskCtx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+            maskCtx.fill();
+            maskCtx.restore();
+        } else {
+            // 画笔：绘制红色遮罩
+            maskCtx.fillStyle = '#ff0000';
+            maskCtx.beginPath();
+            maskCtx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+            maskCtx.fill();
+        }
+    }
+
+    // 橡皮擦：直接擦除像素
+    function eraseAt(cx, cy, radius) {
+        const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+        const data = imageData.data;
+        const radiusSq = radius * radius;
+        
+        // 计算擦除范围（扩大一点以确保覆盖整个圆）
+        const startX = Math.max(0, Math.floor(cx - radius - 1));
+        const endX = Math.min(maskCanvas.width - 1, Math.ceil(cx + radius + 1));
+        const startY = Math.max(0, Math.floor(cy - radius - 1));
+        const endY = Math.min(maskCanvas.height - 1, Math.ceil(cy + radius + 1));
+        
+        // 将范围内的像素设为完全透明
+        for (let y = startY; y <= endY; y++) {
+            for (let x = startX; x <= endX; x++) {
+                const dx = x - cx;
+                const dy = y - cy;
+                if (dx * dx + dy * dy <= radiusSq) {
+                    const idx = (y * maskCanvas.width + x) * 4;
+                    // 将RGBA全部设为0，完全擦除
+                    data[idx] = 0;     // R
+                    data[idx + 1] = 0; // G
+                    data[idx + 2] = 0; // B
+                    data[idx + 3] = 0; // Alpha 设为 0（透明）
+                }
+            }
+        }
+        
+        maskCtx.putImageData(imageData, 0, 0);
+    }
+
+    // 更新光标位置显示
+    function updateCursor(x, y) {
+        brushX = x;
+        brushY = y;
+        
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+            // 清除之前的光标
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            
+            // 获取基础画笔大小，并根据缩放比例调整
+            const baseSize = parseInt(brushSizeInput.value);
+            const size = baseSize / scale;
+            
+            // 绘制深色实心圆表示画笔/橡皮擦大小，增强可见性
+            const isEraser = currentTool === 'eraser';
+            // 橡皮擦使用红色半透明填充，画笔使用深灰色
+            previewCtx.fillStyle = isEraser ? 'rgba(255, 80, 80, 0.5)' : 'rgba(40, 40, 40, 0.6)';
+            previewCtx.strokeStyle = isEraser ? 'rgba(220, 0, 0, 1.0)' : 'rgba(20, 20, 20, 1.0)';
+            previewCtx.lineWidth = 2;
+            previewCtx.beginPath();
+            previewCtx.arc(x, y, size, 0, Math.PI * 2);
+            previewCtx.fill();
+            previewCtx.stroke();
+        }
+    }
+
+    // 设置当前工具
+    function setTool(tool) {
+        currentTool = tool;
+        
+        // 更新按钮状态
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tool + 'Tool').classList.add('active');
+        
+        // 隐藏形状参数（现在用拖拽控制）
+        const shapeParams = document.getElementById('shapeParams');
+        shapeParams.style.display = 'none';
+        
+        // 更新画笔大小标签
+        const brushSizeLabel = document.querySelector('label[for="brushSize"]');
+        
+        // 清除之前的光标
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        
+        // 更新容器样式
+        const container = document.getElementById('editorContainer');
+        if (tool === 'hand') {
+            container.classList.add('zoomed');
+        } else {
+            container.classList.remove('zoomed');
+        }
+        
+        // 更新状态提示
+        if (tool === 'brush') {
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 画笔模式 - 按住鼠标拖动或使用方向键涂抹病斑区域。';
+            brushSizeLabel.textContent = '画笔大小:';
+        } else if (tool === 'eraser') {
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 橡皮擦模式 - 按住鼠标拖动或使用方向键擦除遮罩。';
+            brushSizeLabel.textContent = '橡皮擦大小:';
+        } else if (tool === 'hand') {
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 拖动放大模式 - 滚动鼠标滚轮缩放，按住鼠标拖动平移图片。';
+            brushSizeLabel.textContent = '画笔大小:';
+        } else {
+            const toolNames = {circle: '圆形', ellipse: '椭圆', rect: '矩形', triangle: '三角形'};
+            statusPanel.innerHTML = `<strong>系统状态：</strong> ${toolNames[tool]}模式 - 按住鼠标拖拽绘制形状，像PPT一样控制大小和位置。`;
+            brushSizeLabel.textContent = '画笔大小:';
+        }
+    }
+    
+    // 更新画布变换（缩放和平移）
+    function updateCanvasTransform() {
+        const canvases = [imageCanvas, maskCanvas, previewCanvas];
+        canvases.forEach(canvas => {
+            canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            canvas.style.transformOrigin = 'center center';
+        });
+    }
+    
+    // 处理鼠标滚轮缩放
+    function handleWheel(e) {
+        if (currentTool !== 'hand' || currentImageIndex < 0) return;
+        e.preventDefault();
+        
+        const delta = e.deltaY > 0 ? 0.9 : 1.1; // 向下滚动缩小，向上滚动放大
+        const newScale = Math.min(Math.max(scale * delta, 0.5), 5); // 限制缩放范围0.5x-5x
+        
+        scale = newScale;
+        updateCanvasTransform();
+        
+        statusPanel.innerHTML = `<strong>系统状态：</strong> 缩放比例: ${(scale * 100).toFixed(0)}%`;
+    }
+    
+    // 开始平移
+    function startPan(e) {
+        if (currentTool !== 'hand' || currentImageIndex < 0) return;
+        isPanning = true;
+        panStartX = e.clientX - translateX;
+        panStartY = e.clientY - translateY;
+        document.getElementById('editorContainer').style.cursor = 'grabbing';
+    }
+    
+    // 平移中
+    function pan(e) {
+        if (!isPanning || currentTool !== 'hand') return;
+        e.preventDefault();
+        
+        translateX = e.clientX - panStartX;
+        translateY = e.clientY - panStartY;
+        updateCanvasTransform();
+    }
+    
+    // 结束平移
+    function endPan() {
+        isPanning = false;
+        if (currentTool === 'hand') {
+            document.getElementById('editorContainer').style.cursor = 'grab';
+        }
+    }
+
+    // 预览形状（在预览画布上显示）
+    function previewShapeOnCanvas(x1, y1, x2, y2) {
+        // 清除之前的预览
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        
+        // 绘制半透明预览形状
+        previewCtx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+        previewCtx.strokeStyle = '#ff0000';
+        previewCtx.lineWidth = 2;
+        
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        const width = Math.abs(x2 - x1);
+        const height = Math.abs(y2 - y1);
+        
+        if (width < 3 || height < 3) return;
+        
+        previewCtx.beginPath();
+        
+        switch(currentTool) {
+            case 'circle':
+                const radius = Math.max(width, height) / 2;
+                previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                break;
+            
+            case 'ellipse':
+                previewCtx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, Math.PI * 2);
+                break;
+            
+            case 'rect':
+                previewCtx.rect(Math.min(x1, x2), Math.min(y1, y2), width, height);
+                break;
+            
+            case 'triangle':
+                // 绘制三角形：顶点在上，底部在下
+                const topX = centerX;
+                const topY = Math.min(y1, y2);
+                const bottomLeftX = Math.min(x1, x2);
+                const bottomRightX = Math.max(x1, x2);
+                const bottomY = Math.max(y1, y2);
+                previewCtx.moveTo(topX, topY);
+                previewCtx.lineTo(bottomLeftX, bottomY);
+                previewCtx.lineTo(bottomRightX, bottomY);
+                previewCtx.closePath();
+                break;
+        }
+        
+        previewCtx.fill();
+        previewCtx.stroke();
+    }
+
+    // 根据拖拽坐标绘制形状
+    function drawShapeByDrag(x1, y1, x2, y2) {
         maskCtx.fillStyle = '#ff0000';
+        drawShapeAtCoordinates(x1, y1, x2, y2);
+    }
+
+    // 在指定坐标绘制形状
+    function drawShapeAtCoordinates(x1, y1, x2, y2) {
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        const width = Math.abs(x2 - x1);
+        const height = Math.abs(y2 - y1);
+        
+        // 确保形状有最小尺寸
+        if (width < 5 || height < 5) return;
+        
         maskCtx.beginPath();
-        maskCtx.arc(pos.x, pos.y, brushSizeInput.value, 0, Math.PI * 2);
+        
+        switch(currentTool) {
+            case 'circle':
+                // 圆形：使用宽高中的较大值作为直径
+                const radius = Math.max(width, height) / 2;
+                maskCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                break;
+            
+            case 'ellipse':
+                // 椭圆：使用拖拽的宽高
+                maskCtx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, Math.PI * 2);
+                break;
+            
+            case 'rect':
+                // 矩形：使用拖拽的起始点和终点
+                maskCtx.rect(Math.min(x1, x2), Math.min(y1, y2), width, height);
+                break;
+            
+            case 'triangle':
+                // 绘制三角形：顶点在上，底部在下
+                const topX = centerX;
+                const topY = Math.min(y1, y2);
+                const bottomLeftX = Math.min(x1, x2);
+                const bottomRightX = Math.max(x1, x2);
+                const bottomY = Math.max(y1, y2);
+                maskCtx.moveTo(topX, topY);
+                maskCtx.lineTo(bottomLeftX, bottomY);
+                maskCtx.lineTo(bottomRightX, bottomY);
+                maskCtx.closePath();
+                break;
+        }
+        
         maskCtx.fill();
     }
+
+    // 原有的按参数绘制形状（保留以便键盘操作）
+    function drawShape(x, y) {
+        maskCtx.fillStyle = '#ff0000';
+        const width = parseInt(document.getElementById('shapeWidth').value);
+        const height = parseInt(document.getElementById('shapeHeight').value);
+        
+        maskCtx.beginPath();
+        
+        switch(currentTool) {
+            case 'circle':
+                const radius = width / 2;
+                maskCtx.arc(x, y, radius, 0, Math.PI * 2);
+                break;
+            
+            case 'ellipse':
+                maskCtx.ellipse(x, y, width / 2, height / 2, 0, 0, Math.PI * 2);
+                break;
+            
+            case 'rect':
+                maskCtx.rect(x - width / 2, y - height / 2, width, height);
+                break;
+        }
+        
+        maskCtx.fill();
+    }
+
+    // 绘制画笔光标
+    function drawBrushCursor() {
+        if (currentImageIndex < 0) return;
+        
+        // 创建临时画布来显示光标
+        const cursorCanvas = document.createElement('canvas');
+        cursorCanvas.width = maskCanvas.width;
+        cursorCanvas.height = maskCanvas.height;
+        const cursorCtx = cursorCanvas.getContext('2d');
+        
+        // 复制当前遮罩内容
+        cursorCtx.putImageData(maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height), 0, 0);
+        
+        // 绘制画笔光标
+        cursorCtx.strokeStyle = '#ff0000';
+        cursorCtx.lineWidth = 1;
+        cursorCtx.beginPath();
+        cursorCtx.arc(brushX, brushY, parseInt(brushSizeInput.value), 0, Math.PI * 2);
+        cursorCtx.stroke();
+        
+        // 更新显示
+        maskCanvas.style.backgroundImage = `url(${cursorCanvas.toDataURL()})`;
+    }
+
+    // 键盘控制画笔移动
+    document.addEventListener('keydown', function(e) {
+        if (currentImageIndex < 0 || editorSection.classList.contains('hidden')) return;
+        
+        let moved = false;
+        switch(e.key) {
+            case 'ArrowUp':
+                brushY = Math.max(0, brushY - stepSize);
+                moved = true;
+                break;
+            case 'ArrowDown':
+                brushY = Math.min(maskCanvas.height, brushY + stepSize);
+                moved = true;
+                break;
+            case 'ArrowLeft':
+                brushX = Math.max(0, brushX - stepSize);
+                moved = true;
+                break;
+            case 'ArrowRight':
+                brushX = Math.min(maskCanvas.width, brushX + stepSize);
+                moved = true;
+                break;
+            case 'Enter':
+                // 回车键放置形状
+                if (currentTool !== 'brush' && currentTool !== 'eraser') {
+                    e.preventDefault();
+                    drawShape(brushX, brushY);
+                    return;
+                }
+                break;
+        }
+        
+        if (moved) {
+            e.preventDefault();
+            // 更新光标显示
+            updateCursor(brushX, brushY);
+            
+            // 获取基础画笔大小，并根据缩放比例调整
+            const baseSize = parseInt(brushSizeInput.value);
+            const size = baseSize / scale;
+            
+            // 根据当前工具类型处理
+            if (currentTool === 'brush') {
+                // 画笔模式：移动时直接绘制
+                maskCtx.fillStyle = '#ff0000';
+                maskCtx.beginPath();
+                maskCtx.arc(brushX, brushY, size, 0, Math.PI * 2);
+                maskCtx.fill();
+            } else if (currentTool === 'eraser') {
+                // 橡皮擦模式：移动时擦除
+                maskCtx.save();
+                maskCtx.globalCompositeOperation = 'destination-out';
+                maskCtx.beginPath();
+                maskCtx.arc(brushX, brushY, size, 0, Math.PI * 2);
+                maskCtx.fill();
+                maskCtx.restore();
+            }
+        }
+    });
 
     async function submitBatchRepair() {
         if (uploadedImages.length === 0) {
@@ -607,6 +1249,9 @@
 
         try {
             const formData = new FormData();
+            
+            // 使用Promise等待所有blob创建完成
+            const blobPromises = [];
             
             uploadedImages.forEach((item, index) => {
                 formData.append('images', item.file);
@@ -631,13 +1276,18 @@
                 }
                 tCtx.putImageData(tData, 0, 0);
                 
-                tempCanvas.toBlob((blob) => {
-                    formData.append('masks', blob, `mask_${index}.png`);
-                }, 'image/png');
+                // 创建一个Promise来等待blob创建完成
+                const blobPromise = new Promise((resolve) => {
+                    tempCanvas.toBlob((blob) => {
+                        formData.append('masks', blob, `mask_${index}.png`);
+                        resolve();
+                    }, 'image/png');
+                });
+                blobPromises.push(blobPromise);
             });
 
             // 等待所有blob创建完成
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await Promise.all(blobPromises);
 
             const response = await fetch('/api/repair_batch', {
                 method: 'POST',

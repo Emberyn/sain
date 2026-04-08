@@ -19,7 +19,8 @@ app = Flask(__name__, static_folder='frontend', static_url_path='/')
 CORS(app)
 
 # 初始化配置和设备
-config_path = 'D:\sain-main\checkpoint\config.yml'
+# 使用相对于当前脚本的路径
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checkpoint', 'config.yml')
 config = Config(config_path)
 config.DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
