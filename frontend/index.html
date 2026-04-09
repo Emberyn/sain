@@ -39,21 +39,24 @@
             opacity: 0.9;
         }
         .container {
-            max-width: 1400px;
-            width: 90%;
-            margin: 30px auto;
+            max-width: 1600px;
+            width: 98%;
+            margin: 15px auto;
             background: white;
-            padding: 30px;
+            padding: 20px 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
         .controls {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 20px;
+            margin-bottom: 15px;
             justify-content: center;
             align-items: center;
             flex-wrap: wrap;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 8px;
         }
         .btn {
             background-color: var(--secondary-color);
@@ -205,8 +208,13 @@
         .upload-zone {
             border: 3px dashed var(--secondary-color);
             border-radius: 12px;
-            padding: 40px;
+            min-height: 55vh;
+            padding: 60px 40px;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             background: #fafafa;
             cursor: pointer;
             transition: all 0.3s;
@@ -224,7 +232,10 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 15px;
+            min-height: 55vh;
+            align-items: start;
             margin: 20px 0;
+            transition: all 0.3s ease;
         }
         .thumbnail-item {
             position: relative;
@@ -262,8 +273,9 @@
         }
         .thumbnail-item img {
             width: 100%;
-            height: 150px;
+            aspect-ratio: 1 / 1;
             object-fit: cover;
+            display: block;
         }
         .thumbnail-item .label {
             padding: 5px;
@@ -326,7 +338,10 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
+            min-height: 55vh;
+            align-items: start;
             margin-top: 20px;
+            transition: all 0.3s ease;
         }
         .result-card {
             border: 2px solid #ddd;
@@ -349,6 +364,153 @@
         .hidden {
             display: none !important;
         }
+        /* Zoom slider styles */
+        .zoom-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+        }
+        .zoom-control label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-color);
+            white-space: nowrap;
+        }
+        .zoom-slider {
+            width: 180px;
+            height: 8px;
+            border-radius: 4px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--secondary-color);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .zoom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        .zoom-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--secondary-color);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .zoom-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            min-width: 45px;
+            text-align: center;
+            background: #f5f5f5;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        /* Modal styles for enlarged image view */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            overflow: hidden;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.show {
+            display: flex !important;
+        }
+        .modal-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100vh;
+            padding: 0;
+        }
+        .modal-content {
+            display: block;
+            max-width: 98vw;
+            max-height: 98vh;
+            width: auto;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        .modal-controls {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            width: 100%;
+        }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 1001;
+        }
+        .modal-close:hover {
+            color: #bbb;
+        }
+        .modal-nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .modal-nav-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .modal-nav-btn:hover {
+            background-color: var(--primary-color);
+        }
+        .modal-nav-btn.active {
+            background-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(46, 125, 50, 0.7);
+        }
+        .modal-title {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .modal-hint {
+            color: #ccc;
+            margin-top: 10px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -367,6 +529,13 @@
             <label for="brushSize">画笔大小:</label>
             <input type="range" id="brushSize" min="5" max="30" value="15">
         </div>
+        
+        <!-- 调节布局滑动条 -->
+        <div class="zoom-control">
+            <label for="layoutZoom">调节布局:</label>
+            <input type="range" id="layoutZoom" class="zoom-slider" min="80" max="400" value="150" step="10">
+            <span class="zoom-value" id="layoutZoomValue">150px</span>
+        </div>
 
         <button class="btn" id="repairBtn" onclick="submitBatchRepair()" disabled>
             一键智能修复
@@ -383,8 +552,8 @@
     </div>
 
     <div id="thumbnailSection" class="hidden">
-        <h3 style="margin-top: 30px;">已上传的图片 (<span id="imageCount">0</span>/10)</h3>
-        <p style="color: #666;">点击缩略图绘制遮罩，完成后会显示 ✓ 标记</p>
+        <h3 style="margin-top: 20px;">已上传的图片 (<span id="imageCount">0</span>/10)</h3>
+        <p style="color: #666; margin-bottom: 15px;">点击缩略图绘制遮罩，完成后会显示 ✓ 标记</p>
         <div class="thumbnail-grid" id="thumbnailGrid"></div>
     </div>
 
@@ -448,7 +617,7 @@
     </div>
 
     <div id="resultsSection" class="hidden">
-        <h3 style="margin-top: 30px;">修复结果</h3>
+        <h3 style="margin-top: 20px;">修复结果</h3>
         
         <!-- 导航选项卡 -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
@@ -469,6 +638,23 @@
 
     <div class="info-panel" id="statusPanel">
         <strong>系统状态：</strong> 待命。请上传一张存在病斑或破损的大豆叶片图片，并用画笔涂抹病斑区域生成遮罩。
+    </div>
+</div>
+
+<!-- Modal for enlarged image view -->
+<div id="imageModal" class="modal">
+    <span class="modal-close" onclick="closeModal()">&times;</span>
+    <div class="modal-content-wrapper">
+        <img class="modal-content" id="modalImage">
+        <div class="modal-controls">
+            <div class="modal-title" id="modalTitle">图片详情</div>
+            <div class="modal-nav-buttons">
+                <button class="modal-nav-btn active" id="modalTabRepaired" onclick="switchModalView('repaired')">修复后</button>
+                <button class="modal-nav-btn" id="modalTabEdge" onclick="switchModalView('edge')">SAIN 结构感知叶脉图</button>
+                <button class="modal-nav-btn" id="modalTabOriginal" onclick="switchModalView('original')">修复前</button>
+            </div>
+            <p class="modal-hint">提示：使用键盘左右箭头键切换视图</p>
+        </div>
     </div>
 </div>
 
@@ -499,6 +685,21 @@
     const tabOriginal = document.getElementById('tabOriginal');
     const currentImageName = document.getElementById('currentImageName');
     const imageCount = document.getElementById('imageCount');
+    
+    // Layout zoom slider elements
+    const layoutZoomSlider = document.getElementById('layoutZoom');
+    const layoutZoomValue = document.getElementById('layoutZoomValue');
+    
+    // Modal elements
+    const imageModal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalTabRepaired = document.getElementById('modalTabRepaired');
+    const modalTabEdge = document.getElementById('modalTabEdge');
+    const modalTabOriginal = document.getElementById('modalTabOriginal');
+    
+    let currentModalIndex = -1; // Current image index in modal
+    let currentModalView = 'repaired'; // Current view mode in modal
 
     let uploadedImages = [];
     let currentImageIndex = -1;
@@ -526,6 +727,17 @@
 
     maskCtx.fillStyle = 'rgba(0,0,0,0)';
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+
+    // Layout zoom slider event listener
+    layoutZoomSlider.addEventListener('input', function() {
+        const size = this.value;
+        layoutZoomValue.textContent = size + 'px';
+        const gridStyle = `repeat(auto-fill, minmax(${size}px, 1fr))`;
+        thumbnailGrid.style.gridTemplateColumns = gridStyle;
+        repairedGrid.style.gridTemplateColumns = gridStyle;
+        edgeGrid.style.gridTemplateColumns = gridStyle;
+        originalGrid.style.gridTemplateColumns = gridStyle;
+    });
 
     uploadInput.addEventListener('change', handleFiles);
     
@@ -621,7 +833,35 @@
             div.onclick = () => openEditor(index);
             
             const img = document.createElement('img');
-            img.src = item.src;
+            
+            // 如果有遮罩，合成遮罩后的图片
+            if (item.mask) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = item.image.width;
+                tempCanvas.height = item.image.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 绘制原始图片
+                tempCtx.drawImage(item.image, 0, 0);
+                
+                // 将遮罩数据绘制到图片上（半透明红色）
+                const maskData = item.mask;
+                for (let y = 0; y < maskData.height; y++) {
+                    for (let x = 0; x < maskData.width; x++) {
+                        const maskIndex = (y * maskData.width + x) * 4;
+                        if (maskData.data[maskIndex] > 0) { // 如果遮罩区域不为透明
+                            const imgIndex = (y * item.image.width + x) * 4;
+                            // 绘制半透明红色遮罩
+                            tempCtx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+                            tempCtx.fillRect(x, y, 1, 1);
+                        }
+                    }
+                }
+                
+                img.src = tempCanvas.toDataURL();
+            } else {
+                img.src = item.src;
+            }
             
             const label = document.createElement('div');
             label.className = 'label';
@@ -1338,7 +1578,7 @@
             card.className = 'result-card';
             card.innerHTML = `
                 <div class="card-title">${result.filename}</div>
-                <img src="${result.repaired_image}" alt="修复结果">
+                <img src="${result.repaired_image}" alt="修复结果" data-index="${idx}" ondblclick="openModal(${idx})">
                 <div style="font-size: 12px; color: #666;">耗时: ${result.inference_time_ms} ms</div>
                 <button class="btn" style="margin-top: 10px; padding: 5px 10px; font-size: 14px;" onclick="downloadSingle(${idx})">下载此结果</button>
             `;
@@ -1362,7 +1602,7 @@
             card.className = 'result-card';
             card.innerHTML = `
                 <div class="card-title">${result.filename}</div>
-                <img src="${result.edge_image}" alt="SAIN 结构感知叶脉图">
+                <img src="${result.edge_image}" alt="SAIN 结构感知叶脉图" data-index="${idx}" ondblclick="openModal(${idx})">
                 <div style="font-size: 12px; color: #666;">叶脉边缘图</div>
                 <button class="btn" style="margin-top: 10px; padding: 5px 10px; font-size: 14px;" onclick="downloadEdgeImage(${idx})">下载叶脉图</button>
             `;
@@ -1375,7 +1615,7 @@
             card.className = 'result-card';
             card.innerHTML = `
                 <div class="card-title">${item.file.name}</div>
-                <img src="${item.src}" alt="原始图片">
+                <img src="${item.src}" alt="原始图片" data-index="${idx}" ondblclick="openModal(${idx})">
                 <div style="font-size: 12px; color: #666;">原始图片</div>
             `;
             originalGrid.appendChild(card);
@@ -1470,6 +1710,93 @@
             alert('下载出错！');
         }
     }
+    
+    // Modal functions
+    function openModal(index) {
+        currentModalIndex = index;
+        currentModalView = 'repaired'; // Default to repaired view
+        updateModalContent();
+        imageModal.classList.add('show');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+    
+    function closeModal() {
+        imageModal.classList.remove('show');
+        document.body.style.overflow = 'auto'; // Restore scrolling
+    }
+    
+    function updateModalContent() {
+        if (currentModalIndex < 0 || currentModalIndex >= batchResults.length) return;
+        
+        const result = batchResults[currentModalIndex];
+        if (!result || !result.success) return;
+        
+        let imageUrl, titleText;
+        
+        switch(currentModalView) {
+            case 'repaired':
+                imageUrl = result.repaired_image;
+                titleText = `修复后 - ${result.filename}`;
+                break;
+            case 'edge':
+                imageUrl = result.edge_image;
+                titleText = `SAIN 结构感知叶脉图 - ${result.filename}`;
+                break;
+            case 'original':
+                imageUrl = uploadedImages[currentModalIndex].src;
+                titleText = `修复前 - ${uploadedImages[currentModalIndex].file.name}`;
+                break;
+        }
+        
+        modalImage.src = imageUrl;
+        modalTitle.textContent = titleText;
+        
+        // Update button states
+        modalTabRepaired.classList.toggle('active', currentModalView === 'repaired');
+        modalTabEdge.classList.toggle('active', currentModalView === 'edge');
+        modalTabOriginal.classList.toggle('active', currentModalView === 'original');
+    }
+    
+    function switchModalView(view) {
+        currentModalView = view;
+        updateModalContent();
+    }
+    
+    // Keyboard navigation for modal
+    document.addEventListener('keydown', function(e) {
+        if (!imageModal.classList.contains('show')) return;
+        
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            // Cycle backwards: repaired -> original -> edge -> repaired
+            if (currentModalView === 'repaired') {
+                switchModalView('original');
+            } else if (currentModalView === 'original') {
+                switchModalView('edge');
+            } else {
+                switchModalView('repaired');
+            }
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            // Cycle forwards: repaired -> edge -> original -> repaired
+            if (currentModalView === 'repaired') {
+                switchModalView('edge');
+            } else if (currentModalView === 'edge') {
+                switchModalView('original');
+            } else {
+                switchModalView('repaired');
+            }
+        } else if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+    
+    // Close modal when clicking outside the image
+    imageModal.addEventListener('click', function(e) {
+        if (e.target === imageModal) {
+            closeModal();
+        }
+    });
 </script>
 
 </body>
