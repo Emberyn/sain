@@ -523,15 +523,15 @@
 <div class="container">
     <div class="controls">
         <input type="file" id="uploadInput" accept="image/*" multiple style="display: none;">
-        <button class="btn" onclick="handleUploadClick()">上传图片 (最多10张)</button>
+        <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传图片 (最多10张)</button>
         
-        <div class="brush-size">
+        <div class="brush-size" id="brushSizeControl">
             <label for="brushSize">画笔大小:</label>
             <input type="range" id="brushSize" min="5" max="30" value="15">
         </div>
         
         <!-- 调节布局滑动条 -->
-        <div class="zoom-control">
+        <div class="zoom-control" id="zoomControl">
             <label for="layoutZoom">调节布局:</label>
             <input type="range" id="layoutZoom" class="zoom-slider" min="80" max="400" value="150" step="10">
             <span class="zoom-value" id="layoutZoomValue">150px</span>
@@ -600,12 +600,12 @@
                 </div>
             </div>
 
-            <div class="result-panel">
+            <div class="result-panel" id="edgePanel">
                 <img id="edgeResult" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="叶脉边缘图">
                 <div class="result-label">SAIN 结构感知叶脉图</div>
             </div>
 
-            <div class="result-panel">
+            <div class="result-panel" id="repairPanel">
                 <img id="repairResult" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="修复结果">
                 <div class="result-label">修复对比结果</div>
             </div>
@@ -727,6 +727,9 @@
 
     maskCtx.fillStyle = 'rgba(0,0,0,0)';
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    
+    // 初始状态下隐藏画笔大小控制（只在编辑页面显示）
+    document.getElementById('brushSizeControl').style.display = 'none';
 
     // Layout zoom slider event listener
     layoutZoomSlider.addEventListener('input', function() {
@@ -898,7 +901,7 @@
         
         if (uploadedImages.length === 0) {
             thumbnailSection.classList.add('hidden');
-            uploadZone.style.display = 'block';
+            uploadZone.style.display = 'flex';
             statusPanel.innerHTML = '<strong>系统状态：</strong> 已删除图片。请重新上传。';
         } else {
             statusPanel.innerHTML = `<strong>系统状态：</strong> 已删除图片，当前剩余 ${uploadedImages.length} 张图片。`;
@@ -911,22 +914,22 @@
     function openEditor(index) {
         currentImageIndex = index;
         const item = uploadedImages[index];
-                
+                    
         // 重置画笔位置到画布中心
         brushX = imageCanvas.width / 2;
         brushY = imageCanvas.height / 2;
-            
+                
         // 重置缩放和平移
         scale = 1;
         translateX = 0;
         translateY = 0;
         updateCanvasTransform();
-                
+                    
         currentImageName.textContent = item.file.name;
-                
+                    
         imgCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
         imgCtx.drawImage(item.image, 0, 0, imageCanvas.width, imageCanvas.height);
-                
+                    
         maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
         if (item.mask) {
             maskCtx.putImageData(item.mask, 0, 0);
@@ -934,12 +937,22 @@
             maskCtx.fillStyle = 'rgba(0,0,0,0)';
             maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
         }
-                
+                    
         thumbnailSection.classList.add('hidden');
         editorSection.classList.remove('hidden');
         resultsSection.classList.add('hidden');
-                
-        statusPanel.innerHTML = '<strong>系统状态：</strong> 请在图片上涂抹需要修复的病斑或破损区域。使用"手型"工具可以缩放和平移图片，方便绘制细节。';
+            
+        // 隐藏导航栏上的上传按钮、上传区域和调节布局，显示画笔大小
+        document.getElementById('uploadBtn').style.display = 'none';
+        document.getElementById('uploadZone').style.display = 'none';
+        document.getElementById('zoomControl').style.display = 'none';
+        document.getElementById('brushSizeControl').style.display = 'block';
+            
+        // 隐藏编辑页面中不需要的面板
+        document.getElementById('edgePanel').style.display = 'none';
+        document.getElementById('repairPanel').style.display = 'none';
+                    
+        statusPanel.innerHTML = '<strong>系统状态：</strong> 请在图片上涂抹需要修复的病斑或破损区域。使用“手型”工具可以缩放和平移图片，方便绘制细节。';
     }
 
     function saveCurrentMask() {
@@ -951,6 +964,18 @@
                 
         editorSection.classList.add('hidden');
         thumbnailSection.classList.remove('hidden');
+        
+        // 隐藏画笔大小，恢复上传按钮、上传区域和调节布局
+        document.getElementById('brushSizeControl').style.display = 'none';
+        document.getElementById('uploadBtn').style.display = 'block';
+        if (uploadedImages.length === 0) {
+            document.getElementById('uploadZone').style.display = 'flex';
+        }
+        document.getElementById('zoomControl').style.display = 'flex';
+        
+        // 恢复编辑页面中隐藏的面板
+        document.getElementById('edgePanel').style.display = 'block';
+        document.getElementById('repairPanel').style.display = 'block';
                 
         const remaining = uploadedImages.filter(img => !img.completed).length;
         if (remaining === 0) {
@@ -1560,6 +1585,13 @@
         edgeGrid.innerHTML = '';
         originalGrid.innerHTML = '';
         resultsSection.classList.remove('hidden');
+        
+        // 隐藏导航栏上不需要的功能
+        document.getElementById('uploadBtn').style.display = 'none';
+        document.getElementById('uploadZone').style.display = 'none';
+        document.getElementById('brushSizeControl').style.display = 'none';
+        document.getElementById('zoomControl').style.display = 'none';
+        document.getElementById('repairBtn').style.display = 'none';
         
         // 显示修复后的图片
         data.results.forEach((result, idx) => {
