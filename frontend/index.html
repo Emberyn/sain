@@ -523,7 +523,7 @@
 <div class="container">
     <div class="controls">
         <input type="file" id="uploadInput" accept="image/*" multiple style="display: none;">
-        <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传图片 (最多10张)</button>
+        <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传图片 (最多20张)</button>
         
         <div class="brush-size" id="brushSizeControl">
             <label for="brushSize">画笔大小:</label>
@@ -548,11 +548,11 @@
 
     <div class="upload-zone" id="uploadZone" onclick="handleUploadClick()">
         <p style="font-size: 18px; margin: 0;">📁 点击或拖拽图片到此处上传</p>
-        <p style="color: #666; margin: 10px 0 0 0;">支持 PNG、JPG 格式，最多10张</p>
+        <p style="color: #666; margin: 10px 0 0 0;">支持 PNG、JPG 格式，最多20张</p>
     </div>
 
     <div id="thumbnailSection" class="hidden">
-        <h3 style="margin-top: 20px;">已上传的图片 (<span id="imageCount">0</span>/10)</h3>
+        <h3 style="margin-top: 20px;">已上传的图片 (<span id="imageCount">0</span>/20)</h3>
         <p style="color: #666; margin-bottom: 15px;">点击缩略图绘制遮罩，完成后会显示 ✓ 标记</p>
         <div class="thumbnail-grid" id="thumbnailGrid"></div>
     </div>
@@ -784,8 +784,8 @@
     }
 
     function handleFileList(files) {
-        if (uploadedImages.length + files.length > 10) {
-            alert('最多只能上传10张图片！');
+        if (uploadedImages.length + files.length > 20) {
+            alert('最多只能上传20张图片！');
             return;
         }
 
@@ -1510,7 +1510,7 @@
         progressFill.style.width = '0%';
         progressFill.textContent = '0%';
         
-        statusPanel.innerHTML = '<strong>系统状态：</strong> 正在批量处理图片...';
+        statusPanel.innerHTML = `<strong>系统状态：</strong> 正在批量处理 ${uploadedImages.length} 张图片，请耐心等待...`;
 
         try {
             const formData = new FormData();
@@ -1554,10 +1554,19 @@
             // 等待所有blob创建完成
             await Promise.all(blobPromises);
 
+            statusPanel.innerHTML = `<strong>系统状态：</strong> 正在批量处理 ${uploadedImages.length} 张图片，请稍候...`;
+
+            // 设置请求超时为5分钟（处理20张图片需要更长时间）
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5分钟超时
+
             const response = await fetch('/api/repair_batch', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             const data = await response.json();
             
@@ -1572,8 +1581,13 @@
             }
         } catch (error) {
             console.error(error);
-            alert('网络或服务器错误！');
-            statusPanel.innerHTML = '<strong>系统状态：</strong> 网络或服务器错误。';
+            if (error.name === 'AbortError') {
+                alert('处理超时！图片数量较多，请稍后重试或分批处理。');
+                statusPanel.innerHTML = '<strong>系统状态：</strong> 处理超时，请重试。';
+            } else {
+                alert('网络或服务器错误！');
+                statusPanel.innerHTML = '<strong>系统状态：</strong> 网络或服务器错误。';
+            }
         } finally {
             repairBtn.disabled = false;
             progressBar.style.display = 'none';

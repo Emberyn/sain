@@ -18,6 +18,12 @@ from edge_make.edge_extraction_2 import SobelConv
 app = Flask(__name__, static_folder='frontend', static_url_path='/')
 CORS(app)
 
+# 配置文件上传大小限制（20张图片，每张图片大约2-5MB，遮罩约1MB）
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB
+
+# 设置请求超时时间为5分钟
+app.config['PERMANENT_SESSION_LIFETIME'] = 300  # 5分钟
+
 # 初始化配置和设备
 # 使用相对于当前脚本的路径
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checkpoint', 'config.yml')
@@ -156,7 +162,7 @@ def repair():
 @app.route('/api/repair_batch', methods=['POST'])
 def repair_batch():
     """
-    批量处理多张图片（最多10张）
+    批量处理多张图片（最多20张）
     """
     try:
         if 'images' not in request.files or 'masks' not in request.files:
@@ -168,8 +174,8 @@ def repair_batch():
         if len(images_files) != len(masks_files):
             return jsonify({'error': '图片和遮罩数量不匹配'}), 400
 
-        if len(images_files) > 10:
-            return jsonify({'error': '最多只能上传10张图片'}), 400
+        if len(images_files) > 20:
+            return jsonify({'error': '最多只能上传20张图片'}), 400
 
         if len(images_files) == 0:
             return jsonify({'error': '未接收到任何图片'}), 400
