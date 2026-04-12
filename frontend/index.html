@@ -316,27 +316,42 @@
         }
         .progress-bar {
             width: 100%;
-            height: 30px;
-            background: #e0e0e0;
-            border-radius: 15px;
-            overflow: hidden;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 40px 20px;
             margin: 20px 0;
             display: none;
+            text-align: center;
         }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
-            width: 0%;
-            transition: width 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
+        .loading-spinner {
+            border: 4px solid #e0e0e0;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+        }
+        .results-sticky-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 100;
+            padding: 15px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
             gap: 20px;
             min-height: 55vh;
             align-items: start;
@@ -351,10 +366,11 @@
         }
         .result-card img {
             width: 100%;
-            height: 200px;
-            object-fit: cover;
+            height: 350px;
+            object-fit: contain;
             border-radius: 4px;
             margin: 5px 0;
+            background: #000;
         }
         .result-card .card-title {
             font-weight: bold;
@@ -544,6 +560,9 @@
         <button class="btn" id="downloadBtn" onclick="downloadBatchResults()" style="display: none;">
             下载全部结果 (ZIP)
         </button>
+        <button class="btn" id="reuploadBtn" onclick="reuploadImages()" style="display: none; background-color: #ff9800;">
+            重新上传
+        </button>
     </div>
 
     <div class="upload-zone" id="uploadZone" onclick="handleUploadClick()">
@@ -613,17 +632,20 @@
     </div>
 
     <div class="progress-bar" id="progressBar">
-        <div class="progress-fill" id="progressFill">0%</div>
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在处理中，请稍候...</div>
     </div>
 
     <div id="resultsSection" class="hidden">
-        <h3 style="margin-top: 20px;">修复结果</h3>
-        
-        <!-- 导航选项卡 -->
-        <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
-            <button class="btn" id="tabRepaired" onclick="switchTab('repaired')" style="background-color: var(--primary-color);">修复后</button>
-            <button class="btn" id="tabEdge" onclick="switchTab('edge')" style="background-color: #999;">SAIN 结构感知叶脉图</button>
-            <button class="btn" id="tabOriginal" onclick="switchTab('original')" style="background-color: #999;">修复前</button>
+        <div class="results-sticky-header">
+            <h3 style="margin: 0 0 15px 0;">修复结果</h3>
+            
+            <!-- 导航选项卡 -->
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="tabRepaired" onclick="switchTab('repaired')" style="background-color: var(--primary-color);">修复后</button>
+                <button class="btn" id="tabEdge" onclick="switchTab('edge')" style="background-color: #999;">SAIN 结构感知叶脉图</button>
+                <button class="btn" id="tabOriginal" onclick="switchTab('original')" style="background-color: #999;">修复前</button>
+            </div>
         </div>
         
         <!-- 修复后图片网格 -->
@@ -675,7 +697,6 @@
     const repairBtn = document.getElementById('repairBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
     const resultsSection = document.getElementById('resultsSection');
     const repairedGrid = document.getElementById('repairedGrid');
     const edgeGrid = document.getElementById('edgeGrid');
@@ -1507,8 +1528,6 @@
         repairBtn.disabled = true;
         downloadBtn.style.display = 'none';
         progressBar.style.display = 'block';
-        progressFill.style.width = '0%';
-        progressFill.textContent = '0%';
         
         statusPanel.innerHTML = `<strong>系统状态：</strong> 正在批量处理 ${uploadedImages.length} 张图片，请耐心等待...`;
 
@@ -1569,16 +1588,10 @@
             clearTimeout(timeoutId);
 
             const data = await response.json();
-            
-            if (data.success) {
-                batchResults = data.results;
-                displayBatchResults(data);
-                downloadBtn.style.display = 'inline-flex';
-                statusPanel.innerHTML = `<strong>批量修复完成！</strong> 成功: ${data.successful}/${data.total_images}, 失败: ${data.failed}, 总耗时: ${data.total_time_ms} ms`;
-            } else {
-                alert('修复失败：' + data.error);
-                statusPanel.innerHTML = '<strong>系统状态：</strong> 修复失败，请查看控制台日志。';
-            }
+
+            processResults(data);
+            repairBtn.disabled = false;
+            progressBar.style.display = 'none';
         } catch (error) {
             console.error(error);
             if (error.name === 'AbortError') {
@@ -1588,9 +1601,22 @@
                 alert('网络或服务器错误！');
                 statusPanel.innerHTML = '<strong>系统状态：</strong> 网络或服务器错误。';
             }
-        } finally {
             repairBtn.disabled = false;
             progressBar.style.display = 'none';
+        }
+    }
+
+    // 处理修复结果的函数
+    function processResults(data) {
+        if (data.success) {
+            batchResults = data.results;
+            displayBatchResults(data);
+            downloadBtn.style.display = 'inline-flex';
+            document.getElementById('reuploadBtn').style.display = 'inline-flex';
+            statusPanel.innerHTML = `<strong>批量修复完成！</strong> 成功: ${data.successful}/${data.total_images}, 失败: ${data.failed}, 总耗时: ${data.total_time_ms} ms`;
+        } else {
+            alert('修复失败：' + data.error);
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 修复失败，请查看控制台日志。';
         }
     }
 
@@ -1699,6 +1725,79 @@
         }
     }
 
+    // 全局键盘导航（修复结果页面和模态框）
+    document.addEventListener('keydown', function(e) {
+        const isModalOpen = imageModal.classList.contains('show');
+        const isResultsVisible = !resultsSection.classList.contains('hidden');
+        
+        // 如果两个都不可见，不处理键盘事件
+        if (!isModalOpen && !isResultsVisible) {
+            return;
+        }
+        
+        // ESC 键关闭模态框
+        if (e.key === 'Escape' && isModalOpen) {
+            e.preventDefault();
+            closeModal();
+            return;
+        }
+        
+        // 左方向键
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (isModalOpen) {
+                // 模态框中的视图切换：修复后 -> 修复前 -> 叶脉图 -> 修复后
+                if (currentModalView === 'repaired') {
+                    switchModalView('original');
+                } else if (currentModalView === 'original') {
+                    switchModalView('edge');
+                } else {
+                    switchModalView('repaired');
+                }
+            } else if (isResultsVisible) {
+                // 结果页面的视图切换：修复后 -> 修复前 -> 叶脉图 -> 修复后
+                let currentTab = 'repaired';
+                if (!edgeGrid.classList.contains('hidden')) {
+                    currentTab = 'edge';
+                } else if (!originalGrid.classList.contains('hidden')) {
+                    currentTab = 'original';
+                }
+                
+                const tabOrder = ['repaired', 'original', 'edge'];
+                const currentIndex = tabOrder.indexOf(currentTab);
+                const prevIndex = (currentIndex + 1) % tabOrder.length;
+                switchTab(tabOrder[prevIndex]);
+            }
+        }
+        // 右方向键
+        else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (isModalOpen) {
+                // 模态框中的视图切换：修复后 -> 叶脉图 -> 修复前 -> 修复后
+                if (currentModalView === 'repaired') {
+                    switchModalView('edge');
+                } else if (currentModalView === 'edge') {
+                    switchModalView('original');
+                } else {
+                    switchModalView('repaired');
+                }
+            } else if (isResultsVisible) {
+                // 结果页面的视图切换：修复后 -> 叶脉图 -> 修复前 -> 修复后
+                let currentTab = 'repaired';
+                if (!edgeGrid.classList.contains('hidden')) {
+                    currentTab = 'edge';
+                } else if (!originalGrid.classList.contains('hidden')) {
+                    currentTab = 'original';
+                }
+                
+                const tabOrder = ['repaired', 'edge', 'original'];
+                const currentIndex = tabOrder.indexOf(currentTab);
+                const nextIndex = (currentIndex + 1) % tabOrder.length;
+                switchTab(tabOrder[nextIndex]);
+            }
+        }
+    });
+
     function downloadSingle(index) {
         const result = batchResults[index];
         if (!result || !result.success) return;
@@ -1721,6 +1820,58 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    }
+
+    // 重新上传功能
+    function reuploadImages() {
+        if (confirm('确定要重新上传新图片吗？当前所有数据和结果将被清除。')) {
+            // 清除所有数据
+            uploadedImages = [];
+            currentImageIndex = -1;
+            batchResults = [];
+            
+            // 重置UI
+            thumbnailGrid.innerHTML = '';
+            repairedGrid.innerHTML = '';
+            edgeGrid.innerHTML = '';
+            originalGrid.innerHTML = '';
+            
+            thumbnailSection.classList.add('hidden');
+            editorSection.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            
+            // 显示上传区域
+            uploadZone.style.display = 'flex';
+            
+            // 恢复导航栏按钮
+            document.getElementById('uploadBtn').style.display = 'inline-flex';
+            document.getElementById('brushSizeControl').style.display = 'none';
+            document.getElementById('zoomControl').style.display = 'flex';
+            document.getElementById('repairBtn').style.display = 'inline-flex';
+            downloadBtn.style.display = 'none';
+            document.getElementById('reuploadBtn').style.display = 'none';
+            
+            // 重置进度条
+            progressBar.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressFill.textContent = '0%';
+            
+            // 清除画布
+            imgCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+            
+            // 重置结果图片
+            document.getElementById('repairResult').src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+            document.getElementById('edgeResult').src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+            
+            // 清空文件输入框
+            uploadInput.value = '';
+            
+            // 更新状态
+            statusPanel.innerHTML = '<strong>系统状态：</strong> 已清除所有内容，请重新上传图片。';
+            
+            repairBtn.disabled = true;
+        }
     }
 
     async function downloadBatchResults() {
@@ -1807,35 +1958,6 @@
         currentModalView = view;
         updateModalContent();
     }
-    
-    // Keyboard navigation for modal
-    document.addEventListener('keydown', function(e) {
-        if (!imageModal.classList.contains('show')) return;
-        
-        if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            // Cycle backwards: repaired -> original -> edge -> repaired
-            if (currentModalView === 'repaired') {
-                switchModalView('original');
-            } else if (currentModalView === 'original') {
-                switchModalView('edge');
-            } else {
-                switchModalView('repaired');
-            }
-        } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            // Cycle forwards: repaired -> edge -> original -> repaired
-            if (currentModalView === 'repaired') {
-                switchModalView('edge');
-            } else if (currentModalView === 'edge') {
-                switchModalView('original');
-            } else {
-                switchModalView('repaired');
-            }
-        } else if (e.key === 'Escape') {
-            closeModal();
-        }
-    });
     
     // Close modal when clicking outside the image
     imageModal.addEventListener('click', function(e) {
