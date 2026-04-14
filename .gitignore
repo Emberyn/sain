@@ -40,3 +40,4 @@ checkpoint/*.dat
 
 # 系统文件
 .DS_Store
+/checkpoint.zip
