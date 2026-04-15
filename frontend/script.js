@@ -754,6 +754,12 @@ function openEditor(index) {
     document.getElementById('uploadZone').style.display = 'none';
     document.getElementById('zoomControl').style.display = 'none';
     document.getElementById('brushSizeControl').style.display = 'block';
+    
+    // 隐藏批量操作按钮和修复按钮
+    batchMaskUploadBtn.style.display = 'none';
+    clearSelectedMasksBtn.style.display = 'none';
+    deleteSelectedImagesBtn.style.display = 'none';
+    repairBtn.style.display = 'none';
         
     // 隐藏编辑页面中不需要的面板
     document.getElementById('edgePanel').style.display = 'none';
@@ -779,6 +785,12 @@ function saveCurrentMask() {
         document.getElementById('uploadZone').style.display = 'flex';
     }
     document.getElementById('zoomControl').style.display = 'flex';
+    
+    // 恢复批量操作按钮
+    updateBatchButtons();
+    // 恢复修复按钮状态
+    checkCanRepair();
+    repairBtn.style.display = 'inline-flex';
     
     // 恢复编辑页面中隐藏的面板
     document.getElementById('edgePanel').style.display = 'block';
