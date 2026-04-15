@@ -16,11 +16,10 @@
 <div class="container">
     <div class="controls">
         <input type="file" id="uploadInput" accept="image/*" multiple style="display: none;">
-        <input type="file" id="maskUploadInput" accept="image/*" multiple style="display: none;">
-        <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传图片 (最多20张)</button>
-        <button class="btn" id="maskUploadBtn" onclick="handleMaskUploadClick()" style="display: none;">上传掩码文件</button>
-        <button class="btn" id="batchMaskUploadBtn" onclick="handleBatchMaskUpload()" style="display: none; background-color: #2196f3;">为选中图片上传遮罩</button>
-        <button class="btn" id="clearSelectedMasksBtn" onclick="clearSelectedMasks()" style="display: none; background-color: #ff5722;">清除选中遮罩</button>
+        <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传叶片图片 (最多20张)</button>
+        <button class="btn" id="batchMaskUploadBtn" onclick="handleBatchMaskUpload()" style="display: none; background-color: #2196f3;">为所有图片上传遮罩</button>
+        <button class="btn" id="clearSelectedMasksBtn" onclick="clearSelectedMasks()" style="display: none; background-color: #ff5722;">清除所有遮罩</button>
+        <button class="btn" id="deleteSelectedImagesBtn" onclick="deleteSelectedImages()" style="display: none; background-color: #f44336;">删除选中图片</button>
         
         <div class="brush-size" id="brushSizeControl">
             <label for="brushSize">画笔大小:</label>

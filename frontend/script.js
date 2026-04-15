@@ -1,5 +1,4 @@
 const uploadInput = document.getElementById('uploadInput');
-const maskUploadInput = document.getElementById('maskUploadInput');
 const uploadZone = document.getElementById('uploadZone');
 const thumbnailSection = document.getElementById('thumbnailSection');
 const thumbnailGrid = document.getElementById('thumbnailGrid');
@@ -27,6 +26,7 @@ const imageCount = document.getElementById('imageCount');
 const selectionBox = document.getElementById('selectionBox');
 const batchMaskUploadBtn = document.getElementById('batchMaskUploadBtn');
 const clearSelectedMasksBtn = document.getElementById('clearSelectedMasksBtn');
+const deleteSelectedImagesBtn = document.getElementById('deleteSelectedImagesBtn');
 
 // Layout zoom slider elements
 const layoutZoomSlider = document.getElementById('layoutZoom');
@@ -109,7 +109,6 @@ resultLayoutZoomSlider.addEventListener('input', function() {
 });
 
 uploadInput.addEventListener('change', handleFiles);
-maskUploadInput.addEventListener('change', handleMaskFiles);
 
 // 为编辑器容器添加滚轮和平移事件
 const editorContainer = document.getElementById('editorContainer');
@@ -125,6 +124,17 @@ thumbnailGrid.addEventListener('dragstart', function(e) {
     return false;
 });
 
+// 点击缩略图网格的空白处时取消多选
+thumbnailGrid.addEventListener('click', function(e) {
+    // 如果点击的是缩略图网格本身（不是缩略图项），则取消多选
+    if (e.target === thumbnailGrid) {
+        if (selectedIndices.size > 0) {
+            selectedIndices.clear();
+            updateThumbnailGrid();
+        }
+    }
+});
+
 function handleUploadClick() {
     // 只有在修复完成后，才清除所有数据
     // batchResults.length > 0 表示已经完成过修复
@@ -135,10 +145,6 @@ function handleUploadClick() {
     document.getElementById('uploadInput').click();
 }
 
-function handleMaskUploadClick() {
-    // 触发掩码文件选择
-    document.getElementById('maskUploadInput').click();
-}
 
 uploadZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -236,6 +242,22 @@ function handleMaskFileList(files) {
                 tempCtx.drawImage(maskImg, 0, 0, 256, 256);
                 const maskData = tempCtx.getImageData(0, 0, 256, 256);
 
+                // 如果已有遮罩，合并新旧遮罩（取并集）
+                const existingMask = uploadedImages[imgIndex].mask;
+                if (existingMask && existingMask.data) {
+                    for (let i = 0; i < maskData.data.length; i += 4) {
+                        // 如果旧遮罩或新遮罩在该位置有标记，则标记为有遮罩
+                        const oldMask = existingMask.data[i];
+                        const newMask = maskData.data[i];
+                        if (oldMask > 0 || newMask > 0) {
+                            maskData.data[i] = 255;     // R通道
+                            maskData.data[i + 1] = 0;   // G通道
+                            maskData.data[i + 2] = 0;   // B通道
+                            maskData.data[i + 3] = 255; // Alpha通道
+                        }
+                    }
+                }
+
                 // 设置掩码
                 uploadedImages[imgIndex].mask = maskData;
                 uploadedImages[imgIndex].completed = true;
@@ -260,8 +282,6 @@ function updateThumbnailGrid() {
     if (uploadedImages.length > 0) {
         thumbnailSection.classList.remove('hidden');
         uploadZone.style.display = 'none';
-        // 显示掩码上传按钮
-        document.getElementById('maskUploadBtn').style.display = 'inline-flex';
     }
 
     uploadedImages.forEach((item, index) => {
@@ -470,20 +490,25 @@ function updateBatchButtons() {
     if (hasImages) {
         batchMaskUploadBtn.style.display = 'inline-flex';
         clearSelectedMasksBtn.style.display = 'inline-flex';
+        deleteSelectedImagesBtn.style.display = 'inline-flex';
         
         // 更新按钮文本
         if (hasSelection) {
             batchMaskUploadBtn.textContent = `为选中图片上传遮罩 (${selectedIndices.size})`;
             clearSelectedMasksBtn.textContent = `清除选中遮罩 (${selectedIndices.size})`;
+            deleteSelectedImagesBtn.textContent = `删除选中图片 (${selectedIndices.size})`;
             batchMaskUploadBtn.disabled = false;
             clearSelectedMasksBtn.disabled = false;
+            deleteSelectedImagesBtn.disabled = false;
         } else {
             batchMaskUploadBtn.textContent = '为所有图片上传遮罩';
             clearSelectedMasksBtn.textContent = '清除所有遮罩';
+            deleteSelectedImagesBtn.textContent = '删除选中图片';
         }
     } else {
         batchMaskUploadBtn.style.display = 'none';
         clearSelectedMasksBtn.style.display = 'none';
+        deleteSelectedImagesBtn.style.display = 'none';
     }
 }
 
@@ -546,6 +571,22 @@ function handleBatchMaskUpload() {
                     tempCtx.drawImage(maskImg, 0, 0, 256, 256);
                     const maskData = tempCtx.getImageData(0, 0, 256, 256);
                     
+                    // 如果已有遮罩，合并新旧遮罩（取并集）
+                    const existingMask = uploadedImages[imgIndex].mask;
+                    if (existingMask && existingMask.data) {
+                        for (let i = 0; i < maskData.data.length; i += 4) {
+                            // 如果旧遮罩或新遮罩在该位置有标记，则标记为有遮罩
+                            const oldMask = existingMask.data[i];
+                            const newMask = maskData.data[i];
+                            if (oldMask > 0 || newMask > 0) {
+                                maskData.data[i] = 255;     // R通道
+                                maskData.data[i + 1] = 0;   // G通道
+                                maskData.data[i + 2] = 0;   // B通道
+                                maskData.data[i + 3] = 255; // Alpha通道
+                            }
+                        }
+                    }
+                    
                     // 设置掩码
                     uploadedImages[imgIndex].mask = maskData;
                     uploadedImages[imgIndex].completed = true;
@@ -595,6 +636,50 @@ function clearSelectedMasks() {
     selectedIndices.clear();
     updateThumbnailGrid();
     statusPanel.innerHTML = `<strong>系统状态：</strong> 已清除 ${targetIndices.length} 张图片的遮罩。`;
+}
+
+// 删除选中的图片
+function deleteSelectedImages() {
+    let targetIndices;
+    if (selectedIndices.size > 0) {
+        targetIndices = Array.from(selectedIndices).sort((a, b) => b - a); // 降序排序，从后往前删除
+    } else {
+        alert('请先选择要删除的图片！按住Ctrl+单击或拖拽框选图片。');
+        return;
+    }
+    
+    if (!confirm(`确定要删除选中的 ${targetIndices.length} 张图片吗？`)) {
+        return;
+    }
+    
+    // 从后往前删除，避免索引变化
+    targetIndices.forEach(idx => {
+        uploadedImages.splice(idx, 1);
+    });
+    
+    // 清除选择状态
+    selectedIndices.clear();
+    
+    // 如果当前正在编辑的图片被删除，关闭编辑器
+    if (currentImageIndex !== -1) {
+        const wasDeleted = targetIndices.some(idx => idx === currentImageIndex || idx < currentImageIndex);
+        if (wasDeleted) {
+            currentImageIndex = -1;
+            editorSection.classList.add('hidden');
+        } else {
+            // 调整当前编辑索引
+            let deletedBefore = targetIndices.filter(idx => idx < currentImageIndex).length;
+            currentImageIndex -= deletedBefore;
+        }
+    }
+    
+    // 更新缩略图网格
+    updateThumbnailGrid();
+    
+    // 更新按钮状态
+    updateBatchMaskUploadBtn();
+    
+    statusPanel.innerHTML = `<strong>系统状态：</strong> 已删除 ${targetIndices.length} 张图片。`;
 }
 
 function deleteImage(index) {
@@ -737,7 +822,6 @@ function clearAllData() {
     repairBtn.disabled = true;
     downloadBtn.style.display = 'none';
     progressBar.style.display = 'none';
-    document.getElementById('maskUploadBtn').style.display = 'none';
     document.getElementById('resultZoomControl').style.display = 'none';
     
     imgCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
@@ -1353,7 +1437,9 @@ function displayBatchResults(data) {
     document.getElementById('brushSizeControl').style.display = 'none';
     document.getElementById('zoomControl').style.display = 'none';
     document.getElementById('repairBtn').style.display = 'none';
-    document.getElementById('maskUploadBtn').style.display = 'none';
+    document.getElementById('batchMaskUploadBtn').style.display = 'none';
+    document.getElementById('clearSelectedMasksBtn').style.display = 'none';
+    document.getElementById('deleteSelectedImagesBtn').style.display = 'none';
     
     // 显示结果页面的布局调节滑动条
     document.getElementById('resultZoomControl').style.display = 'flex';
