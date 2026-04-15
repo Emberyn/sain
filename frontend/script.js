@@ -28,15 +28,13 @@ const batchMaskUploadBtn = document.getElementById('batchMaskUploadBtn');
 const clearSelectedMasksBtn = document.getElementById('clearSelectedMasksBtn');
 const deleteSelectedImagesBtn = document.getElementById('deleteSelectedImagesBtn');
 
-// Layout zoom slider elements
+// AI辅助生成：灵码, 2026-04-09 - 布局滑动条元素
 const layoutZoomSlider = document.getElementById('layoutZoom');
 const layoutZoomValue = document.getElementById('layoutZoomValue');
 
-// Result page layout zoom slider elements
 const resultLayoutZoomSlider = document.getElementById('resultLayoutZoom');
 const resultLayoutZoomValue = document.getElementById('resultLayoutZoomValue');
 
-// Modal elements
 const imageModal = document.getElementById('imageModal');
 const modalImage = document.getElementById('modalImage');
 const modalTitle = document.getElementById('modalTitle');
@@ -44,50 +42,45 @@ const modalTabRepaired = document.getElementById('modalTabRepaired');
 const modalTabEdge = document.getElementById('modalTabEdge');
 const modalTabOriginal = document.getElementById('modalTabOriginal');
 
-let currentModalIndex = -1; // Current image index in modal
-let currentModalView = 'repaired'; // Current view mode in modal
+let currentModalIndex = -1;
+let currentModalView = 'repaired';
 
 let uploadedImages = [];
 let currentImageIndex = -1;
 let isDrawing = false;
 let batchResults = [];
 
-// 多选相关变量
-let selectedIndices = new Set(); // 存储选中的图片索引
-let isDragging = false; // 是否正在拖拽选择框
+let selectedIndices = new Set();
+let isDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
 let dragStartTime = 0;
-const DRAG_THRESHOLD = 5; // 拖拽阈值（像素）
-const LONG_PRESS_DELAY = 200; // 长按延迟（毫秒）
+const DRAG_THRESHOLD = 5;
+const LONG_PRESS_DELAY = 200;
 
-// 画笔位置变量
-let brushX = 128; // 初始X位置（画布中心）
-let brushY = 128; // 初始Y位置（画布中心）
-const stepSize = 5; // 每次移动的步长
+let brushX = 128;
+let brushY = 128;
+const stepSize = 5;
 
-// 图形工具相关
-let currentTool = 'brush'; // 当前工具: brush, eraser, hand, circle, ellipse, rect, triangle
-let isShapeDrawing = false; // 是否正在绘制形状
+let currentTool = 'brush';
+let isShapeDrawing = false;
 let shapeStartX = 0;
 let shapeStartY = 0;
 
-// 缩放和平移相关
-let scale = 1; // 当前缩放比例
-let translateX = 0; // X轴平移
-let translateY = 0; // Y轴平移
-let isPanning = false; // 是否正在平移
-let panStartX = 0; // 平移起始X
-let panStartY = 0; // 平移起始Y
+let scale = 1;
+let translateX = 0;
+let translateY = 0;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
 
 maskCtx.fillStyle = 'rgba(0,0,0,0)';
 maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
 
-// 初始状态下隐藏画笔大小控制和结果页面布局调节（只在相应页面显示）
 document.getElementById('brushSizeControl').style.display = 'none';
 document.getElementById('resultZoomControl').style.display = 'none';
 
-// Layout zoom slider event listener - 只控制缩略图grid
+// AI辅助生成：灵码, 2026-04-09 - 布局滑动条事件
 layoutZoomSlider.addEventListener('input', function() {
     const size = this.value;
     layoutZoomValue.textContent = size + 'px';
@@ -95,7 +88,6 @@ layoutZoomSlider.addEventListener('input', function() {
     thumbnailGrid.style.gridTemplateColumns = gridStyle;
 });
 
-// Result page layout zoom slider event listener
 resultLayoutZoomSlider.addEventListener('input', function() {
     const size = this.value;
     resultLayoutZoomValue.textContent = size + 'px';
@@ -103,14 +95,11 @@ resultLayoutZoomSlider.addEventListener('input', function() {
     repairedGrid.style.gridTemplateColumns = gridStyle;
     edgeGrid.style.gridTemplateColumns = gridStyle;
     originalGrid.style.gridTemplateColumns = gridStyle;
-    
-    // 同时设置结果图片的高度CSS变量（保持正方形，高度等于宽度）
     document.documentElement.style.setProperty('--result-image-height', size + 'px');
 });
 
 uploadInput.addEventListener('change', handleFiles);
 
-// 为编辑器容器添加滚轮和平移事件
 const editorContainer = document.getElementById('editorContainer');
 editorContainer.addEventListener('wheel', handleWheel, { passive: false });
 editorContainer.addEventListener('mousedown', startPan);
@@ -118,15 +107,12 @@ editorContainer.addEventListener('mousemove', pan);
 editorContainer.addEventListener('mouseup', endPan);
 editorContainer.addEventListener('mouseleave', endPan);
 
-// 阻止缩略图区域的拖拽默认行为，防止图片被拖动
 thumbnailGrid.addEventListener('dragstart', function(e) {
     e.preventDefault();
     return false;
 });
 
-// 点击缩略图网格的空白处时取消多选
 thumbnailGrid.addEventListener('click', function(e) {
-    // 如果点击的是缩略图网格本身（不是缩略图项），则取消多选
     if (e.target === thumbnailGrid) {
         if (selectedIndices.size > 0) {
             selectedIndices.clear();
@@ -136,12 +122,9 @@ thumbnailGrid.addEventListener('click', function(e) {
 });
 
 function handleUploadClick() {
-    // 只有在修复完成后，才清除所有数据
-    // batchResults.length > 0 表示已经完成过修复
     if (batchResults.length > 0) {
         clearAllData();
     }
-    // 触发文件选择
     document.getElementById('uploadInput').click();
 }
 
@@ -205,7 +188,6 @@ function handleMaskFileList(files) {
         return;
     }
 
-    // 如果有选中的图片，只为选中的图片上传掩码
     let targetIndices;
     if (selectedIndices.size > 0) {
         targetIndices = Array.from(selectedIndices);
@@ -214,7 +196,6 @@ function handleMaskFileList(files) {
             return;
         }
     } else {
-        // 否则为所有图片上传掩码
         targetIndices = uploadedImages.map((_, idx) => idx);
         if (files.length !== targetIndices.length) {
             alert(`掩码文件数量(${files.length})与图片数量(${targetIndices.length})不匹配！\n提示：可以先选中需要上传掩码的图片，然后再上传。`);
@@ -222,7 +203,6 @@ function handleMaskFileList(files) {
         }
     }
 
-    // 按文件名排序以确保正确配对
     const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
     
     let processedCount = 0;
@@ -232,33 +212,29 @@ function handleMaskFileList(files) {
         reader.onload = function(event) {
             const maskImg = new Image();
             maskImg.onload = function() {
-                // 创建临时canvas来处理掩码
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = 256;
                 tempCanvas.height = 256;
                 const tempCtx = tempCanvas.getContext('2d');
 
-                // 绘制掩码图像
                 tempCtx.drawImage(maskImg, 0, 0, 256, 256);
                 const maskData = tempCtx.getImageData(0, 0, 256, 256);
 
-                // 如果已有遮罩，合并新旧遮罩（取并集）
+                // 合并新旧遮罩
                 const existingMask = uploadedImages[imgIndex].mask;
                 if (existingMask && existingMask.data) {
                     for (let i = 0; i < maskData.data.length; i += 4) {
-                        // 如果旧遮罩或新遮罩在该位置有标记，则标记为有遮罩
                         const oldMask = existingMask.data[i];
                         const newMask = maskData.data[i];
                         if (oldMask > 0 || newMask > 0) {
-                            maskData.data[i] = 255;     // R通道
-                            maskData.data[i + 1] = 0;   // G通道
-                            maskData.data[i + 2] = 0;   // B通道
-                            maskData.data[i + 3] = 255; // Alpha通道
+                            maskData.data[i] = 255;
+                            maskData.data[i + 1] = 0;
+                            maskData.data[i + 2] = 0;
+                            maskData.data[i + 3] = 255;
                         }
                     }
                 }
 
-                // 设置掩码
                 uploadedImages[imgIndex].mask = maskData;
                 uploadedImages[imgIndex].completed = true;
                 uploadedImages[imgIndex].maskFile = sortedFiles[fileIdx];
@@ -286,61 +262,52 @@ function updateThumbnailGrid() {
 
     uploadedImages.forEach((item, index) => {
         const div = document.createElement('div');
-        // 如果有掩码文件，也标记为completed
         const isCompleted = item.completed || item.maskFile;
         const isSelected = selectedIndices.has(index);
         div.className = 'thumbnail-item' + (isCompleted ? ' completed' : '') + (index === currentImageIndex ? ' active' : '') + (isSelected ? ' selected' : '');
         
-        // 删除按钮
         const deleteBtn = document.createElement('div');
         deleteBtn.className = 'delete-btn';
         deleteBtn.textContent = '×';
         deleteBtn.onclick = (e) => {
-            e.stopPropagation(); // 阻止触发缩略图点击事件
+            e.stopPropagation();
             deleteImage(index);
         };
         div.appendChild(deleteBtn);
         
-        // 图片 - 双击进入编辑器
         div.ondblclick = (e) => {
             e.stopPropagation();
             openEditor(index);
         };
         
-        // 单击选择（支持Ctrl多选）
         div.onclick = (e) => {
-            if (e.button === 0 || e.button === undefined) { // 左键
+            if (e.button === 0 || e.button === undefined) {
                 handleThumbnailClick(e, index);
             }
         };
         
-        // mousedown用于检测长按拖拽
         div.onmousedown = (e) => {
-            if (e.button === 0 && !e.ctrlKey) { // 左键且未按Ctrl
+            if (e.button === 0 && !e.ctrlKey) {
                 startDragSelection(e, index);
             }
         };
         
         const img = document.createElement('img');
         
-        // 如果有遮罩，合成遮罩后的图片
         if (item.mask) {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = item.image.width;
             tempCanvas.height = item.image.height;
             const tempCtx = tempCanvas.getContext('2d');
             
-            // 绘制原始图片
             tempCtx.drawImage(item.image, 0, 0);
             
-            // 将遮罩数据绘制到图片上（半透明红色）
             const maskData = item.mask;
             for (let y = 0; y < maskData.height; y++) {
                 for (let x = 0; x < maskData.width; x++) {
                     const maskIndex = (y * maskData.width + x) * 4;
-                    if (maskData.data[maskIndex] > 0) { // 如果遮罩区域不为透明
+                    if (maskData.data[maskIndex] > 0) {
                         const imgIndex = (y * item.image.width + x) * 4;
-                        // 绘制半透明红色遮罩
                         tempCtx.fillStyle = 'rgba(255, 0, 0, 0.4)';
                         tempCtx.fillRect(x, y, 1, 1);
                     }

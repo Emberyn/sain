@@ -48,7 +48,6 @@ def stitch_images(inputs, *outputs, img_per_row=2):
     gap = 5
     columns = len(outputs) + 1
 
-    # 因为 inputs[0] 已经是 PIL Image 对象了，直接用 .size 获取宽和高
     width, height = inputs[0].size
     img = Image.new('RGB', (width * img_per_row * columns + gap * (img_per_row - 1), height * int(len(inputs) / img_per_row)))
     images = [inputs, *outputs]
@@ -58,7 +57,6 @@ def stitch_images(inputs, *outputs, img_per_row=2):
         yoffset = int(ix / img_per_row) * height
 
         for cat in range(len(images)):
-            # 因为 images[cat][ix] 已经是 PIL Image，直接拿来 paste 即可！不需要再转换了
             im = images[cat][ix]
             img.paste(im, (xoffset + cat * width, yoffset))
 
@@ -74,10 +72,8 @@ def imshow(img, title=''):
 
 
 def imsave(img, path):
-    # 判断如果已经是 PIL Image 格式了，直接保存
     if isinstance(img, Image.Image):
         img.save(path)
-    # 如果是 Tensor，再进行转换
     else:
         im = Image.fromarray(img.cpu().numpy().astype(np.uint8).squeeze())
         im.save(path)

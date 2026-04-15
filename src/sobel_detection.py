@@ -1,5 +1,4 @@
-# 原图片文件夹路径
-"""检测sobel"""
+
 import os
 from PIL import Image
 from torchvision import transforms
@@ -36,17 +35,13 @@ def image_to_sobel(image):
 
     gray_image = rgb2gray(np.array(tensor_to_image()(image)))
 
-    # Sobel边缘检测器 -----此时应用这个
     sobel_x = cv2.Sobel(gray_image, cv2.CV_64F, 1, 0, ksize=1, scale=1., delta=0)
     sobel_y = cv2.Sobel(gray_image, cv2.CV_64F, 0, 1, ksize=1, scale=1., delta=0)
     sobel_edges = np.sqrt(sobel_x ** 2 + sobel_y ** 2)
-    # 将边缘强度转换为布尔类型数组，边缘像素为True，非边缘像素为False。 使用Sobel算子检测到的边缘强度的最大值的一定比例作为默认阈值
-    threshold_ratio = 0.1  # 阈值比例，可以根据需要进行调整
+    threshold_ratio = 0.1
     threshold_value = threshold_ratio * np.max(sobel_edges)
     sobel_edges_bool = sobel_edges > threshold_value
-    #sobel_edges_bool = sobel_edges > 0.2
 
-    # 将布尔类型数组转换为PyTorch张量
     edge = image_to_tensor()(Image.fromarray(sobel_edges_bool))
 
     gray_image = image_to_tensor()(Image.fromarray(gray_image))

@@ -11,7 +11,6 @@ class SobelConv(nn.Module):
     def __init__(self, device, edge_to_binary=False):
         super(SobelConv, self).__init__()
 
-        # 定义Prewitt算子
         self.prewitt_x = torch.tensor(
             [[-1, 0, 1],
              [-1, 0, 1],
@@ -23,7 +22,6 @@ class SobelConv(nn.Module):
              [1, 1, 1]], dtype=torch.float32
         ).view(1, 1, 3, 3).to(device=device)
 
-        # 定义Sobel卷积算子
         self.sobel_x = torch.tensor(
             [[-1, 0, 1],
              [-2, 0, 2],
@@ -39,18 +37,14 @@ class SobelConv(nn.Module):
 
     def forward(self, img):
         img = img.to(torch.float32)
-        # 将传入的x的每个通道进行平均操作转为单通道灰度图
         img_gray = img.mean(dim=1, keepdim=True)
-        # 开始sobel卷积操作
         img_x = F.conv2d(img_gray, self.sobel_x, padding=0)
         img_y = F.conv2d(img_gray, self.sobel_y, padding=0)
 
-        # 计算Prewitt梯度
         prewitt_x = F.conv2d(img_gray, self.prewitt_x, padding=0)
         prewitt_y = F.conv2d(img_gray, self.prewitt_y, padding=0)
         prewitt_grad = torch.sqrt(prewitt_x ** 2 + prewitt_y ** 2)
         sobel_grad = torch.sqrt(img_x ** 2 + img_y ** 2)
-        # 合并Sobel和Prewitt结果
         combined_grad = sobel_grad + prewitt_grad
         edge_sigmoid_img = torch.sigmoid(F.pad(combined_grad, (1, 1, 1, 1), mode='constant', value=0))
 
@@ -61,7 +55,6 @@ class SobelConv(nn.Module):
 
 
 def imread_uint(path):
-    # 读取图片并确保是RGB格式
     img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), -1)
     if img.ndim == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
@@ -71,12 +64,10 @@ def imread_uint(path):
 
 
 def uint2single(img):
-    # 归一化到0-1范围
     return np.float32(img / 255.)
 
 
 def single2tensor3(img):
-    # 转为tensor并调整通道顺序
     return torch.from_numpy(np.ascontiguousarray(img)).permute(2, 0, 1).float()
 
 

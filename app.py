@@ -18,14 +18,10 @@ from edge_make.edge_extraction_2 import SobelConv
 app = Flask(__name__, static_folder='frontend', static_url_path='/')
 CORS(app)
 
-# 配置文件上传大小限制（20张图片，每张图片大约2-5MB，遮罩约1MB）
-app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
 
-# 设置请求超时时间为5分钟
-app.config['PERMANENT_SESSION_LIFETIME'] = 300  # 5分钟
+app.config['PERMANENT_SESSION_LIFETIME'] = 300
 
-# 初始化配置和设备
-# 使用相对于当前脚本的路径
 config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checkpoint', 'config.yml')
 config = Config(config_path)
 config.DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -63,7 +59,6 @@ def preprocess_mask(mask_bytes, size=256):
     return mask_np
 
 def to_tensor(img_np):
-    # numpy to tensor [C, H, W] in range [0, 1]
     if img_np.ndim == 2:
         img_np = np.expand_dims(img_np, axis=2)
     img_t = torch.from_numpy(img_np).permute(2, 0, 1).float()

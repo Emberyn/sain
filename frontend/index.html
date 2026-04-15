@@ -26,7 +26,7 @@
             <input type="range" id="brushSize" min="5" max="30" value="15">
         </div>
         
-        <!-- 调节布局滑动条 -->
+        <!-- AI辅助生成：灵码, 2026-04-09 - 调节布局滑动条 -->
         <div class="zoom-control" id="zoomControl">
             <label for="layoutZoom">调节布局:</label>
             <input type="range" id="layoutZoom" class="zoom-slider" min="80" max="400" value="150" step="10">
@@ -61,7 +61,7 @@
     <div id="editorSection" class="hidden">
         <h3 style="margin-top: 30px;">当前编辑: <span id="currentImageName"></span></h3>
         
-        <!-- 工具选择栏 -->
+        <!-- AI辅助生成：灵码, 2026-04-09 - 工具选择栏 -->
         <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
             <div class="tool-selector">
                 <span style="font-weight: bold;">工具:</span>
@@ -123,7 +123,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3 style="margin: 0;">修复结果</h3>
                 
-                <!-- 调节布局滑动条 -->
+                <!-- AI辅助生成：灵码, 2026-04-09 - 结果页布局滑动条 -->
                 <div class="zoom-control" id="resultZoomControl">
                     <label for="resultLayoutZoom">调节布局:</label>
                     <input type="range" id="resultLayoutZoom" class="zoom-slider" min="80" max="400" value="150" step="10">
@@ -131,7 +131,6 @@
                 </div>
             </div>
             
-            <!-- 导航选项卡 -->
             <div style="display: flex; gap: 10px;">
                 <button class="btn" id="tabRepaired" onclick="switchTab('repaired')" style="background-color: var(--primary-color);">修复后</button>
                 <button class="btn" id="tabEdge" onclick="switchTab('edge')" style="background-color: #999;">SAIN 结构感知叶脉图</button>
@@ -139,13 +138,10 @@
             </div>
         </div>
         
-        <!-- 修复后图片网格 -->
         <div id="repairedGrid" class="results-grid"></div>
         
-        <!-- SAIN 结构感知叶脉图网格 -->
         <div id="edgeGrid" class="results-grid hidden"></div>
         
-        <!-- 修复前图片网格 -->
         <div id="originalGrid" class="results-grid hidden"></div>
     </div>
 
@@ -154,7 +150,6 @@
     </div>
 </div>
 
-<!-- Modal for enlarged image view -->
 <div id="imageModal" class="modal">
     <span class="modal-close" onclick="closeModal()">&times;</span>
     <div class="modal-content-wrapper">
