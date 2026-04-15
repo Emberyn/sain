@@ -24,6 +24,9 @@ const tabEdge = document.getElementById('tabEdge');
 const tabOriginal = document.getElementById('tabOriginal');
 const currentImageName = document.getElementById('currentImageName');
 const imageCount = document.getElementById('imageCount');
+const selectionBox = document.getElementById('selectionBox');
+const batchMaskUploadBtn = document.getElementById('batchMaskUploadBtn');
+const clearSelectedMasksBtn = document.getElementById('clearSelectedMasksBtn');
 
 // Layout zoom slider elements
 const layoutZoomSlider = document.getElementById('layoutZoom');
@@ -48,6 +51,15 @@ let uploadedImages = [];
 let currentImageIndex = -1;
 let isDrawing = false;
 let batchResults = [];
+
+// 多选相关变量
+let selectedIndices = new Set(); // 存储选中的图片索引
+let isDragging = false; // 是否正在拖拽选择框
+let dragStartX = 0;
+let dragStartY = 0;
+let dragStartTime = 0;
+const DRAG_THRESHOLD = 5; // 拖拽阈值（像素）
+const LONG_PRESS_DELAY = 200; // 长按延迟（毫秒）
 
 // 画笔位置变量
 let brushX = 128; // 初始X位置（画布中心）
@@ -91,6 +103,9 @@ resultLayoutZoomSlider.addEventListener('input', function() {
     repairedGrid.style.gridTemplateColumns = gridStyle;
     edgeGrid.style.gridTemplateColumns = gridStyle;
     originalGrid.style.gridTemplateColumns = gridStyle;
+    
+    // 同时设置结果图片的高度CSS变量（保持正方形，高度等于宽度）
+    document.documentElement.style.setProperty('--result-image-height', size + 'px');
 });
 
 uploadInput.addEventListener('change', handleFiles);
@@ -103,6 +118,12 @@ editorContainer.addEventListener('mousedown', startPan);
 editorContainer.addEventListener('mousemove', pan);
 editorContainer.addEventListener('mouseup', endPan);
 editorContainer.addEventListener('mouseleave', endPan);
+
+// 阻止缩略图区域的拖拽默认行为，防止图片被拖动
+thumbnailGrid.addEventListener('dragstart', function(e) {
+    e.preventDefault();
+    return false;
+});
 
 function handleUploadClick() {
     // 只有在修复完成后，才清除所有数据
@@ -178,18 +199,29 @@ function handleMaskFileList(files) {
         return;
     }
 
-    if (files.length !== uploadedImages.length) {
-        alert(`掩码文件数量(${files.length})与图片数量(${uploadedImages.length})不匹配！`);
-        return;
+    // 如果有选中的图片，只为选中的图片上传掩码
+    let targetIndices;
+    if (selectedIndices.size > 0) {
+        targetIndices = Array.from(selectedIndices);
+        if (files.length !== targetIndices.length) {
+            alert(`选择的文件数量(${files.length})与选中的图片数量(${targetIndices.length})不匹配！`);
+            return;
+        }
+    } else {
+        // 否则为所有图片上传掩码
+        targetIndices = uploadedImages.map((_, idx) => idx);
+        if (files.length !== targetIndices.length) {
+            alert(`掩码文件数量(${files.length})与图片数量(${targetIndices.length})不匹配！\n提示：可以先选中需要上传掩码的图片，然后再上传。`);
+            return;
+        }
     }
 
     // 按文件名排序以确保正确配对
     const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
-    const sortedImages = [...uploadedImages].sort((a, b) => a.file.name.localeCompare(b.file.name));
-
+    
     let processedCount = 0;
     
-    sortedFiles.forEach((maskFile, index) => {
+    targetIndices.forEach((imgIndex, fileIdx) => {
         const reader = new FileReader();
         reader.onload = function(event) {
             const maskImg = new Image();
@@ -204,23 +236,20 @@ function handleMaskFileList(files) {
                 tempCtx.drawImage(maskImg, 0, 0, 256, 256);
                 const maskData = tempCtx.getImageData(0, 0, 256, 256);
 
-                // 找到对应的图片并设置掩码
-                const originalIndex = uploadedImages.findIndex(img => img.file.name === sortedImages[index].file.name);
-                if (originalIndex !== -1) {
-                    uploadedImages[originalIndex].mask = maskData;
-                    uploadedImages[originalIndex].completed = true;
-                    uploadedImages[originalIndex].maskFile = maskFile;
-                }
-
+                // 设置掩码
+                uploadedImages[imgIndex].mask = maskData;
+                uploadedImages[imgIndex].completed = true;
+                uploadedImages[imgIndex].maskFile = sortedFiles[fileIdx];
+                
                 processedCount++;
-                if (processedCount === files.length) {
+                if (processedCount === targetIndices.length) {
                     updateThumbnailGrid();
-                    statusPanel.innerHTML = `<strong>系统状态：</strong> 已上传 ${files.length} 个掩码文件，所有图片已完成！点击"一键智能修复"开始处理。`;
+                    statusPanel.innerHTML = `<strong>系统状态：</strong> 已为 ${targetIndices.length} 张图片上传掩码文件！点击"一键智能修复"开始处理。`;
                 }
             };
             maskImg.src = event.target.result;
         };
-        reader.readAsDataURL(maskFile);
+        reader.readAsDataURL(sortedFiles[fileIdx]);
     });
 }
 
@@ -239,7 +268,8 @@ function updateThumbnailGrid() {
         const div = document.createElement('div');
         // 如果有掩码文件，也标记为completed
         const isCompleted = item.completed || item.maskFile;
-        div.className = 'thumbnail-item' + (isCompleted ? ' completed' : '') + (index === currentImageIndex ? ' active' : '');
+        const isSelected = selectedIndices.has(index);
+        div.className = 'thumbnail-item' + (isCompleted ? ' completed' : '') + (index === currentImageIndex ? ' active' : '') + (isSelected ? ' selected' : '');
         
         // 删除按钮
         const deleteBtn = document.createElement('div');
@@ -251,8 +281,25 @@ function updateThumbnailGrid() {
         };
         div.appendChild(deleteBtn);
         
-        // 图片
-        div.onclick = () => openEditor(index);
+        // 图片 - 双击进入编辑器
+        div.ondblclick = (e) => {
+            e.stopPropagation();
+            openEditor(index);
+        };
+        
+        // 单击选择（支持Ctrl多选）
+        div.onclick = (e) => {
+            if (e.button === 0 || e.button === undefined) { // 左键
+                handleThumbnailClick(e, index);
+            }
+        };
+        
+        // mousedown用于检测长按拖拽
+        div.onmousedown = (e) => {
+            if (e.button === 0 && !e.ctrlKey) { // 左键且未按Ctrl
+                startDragSelection(e, index);
+            }
+        };
         
         const img = document.createElement('img');
         
@@ -295,6 +342,259 @@ function updateThumbnailGrid() {
     });
 
     checkCanRepair();
+    updateBatchButtons();
+}
+
+// 处理缩略图点击事件（用于选择）
+function handleThumbnailClick(e, index) {
+    // 如果按住Ctrl键，切换选择状态
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        toggleSelection(index);
+    } else {
+        // 如果没有按Ctrl，只选中当前这张图片
+        selectedIndices.clear();
+        selectedIndices.add(index);
+        updateThumbnailGrid();
+    }
+}
+
+// 切换单个图片的选择状态
+function toggleSelection(index) {
+    if (selectedIndices.has(index)) {
+        selectedIndices.delete(index);
+    } else {
+        selectedIndices.add(index);
+    }
+    updateThumbnailGrid();
+}
+
+// 开始拖拽选择（长按后触发）
+let dragTimer = null;
+function startDragSelection(e, index) {
+    const rect = thumbnailGrid.getBoundingClientRect();
+    dragStartX = e.clientX - rect.left;
+    dragStartY = e.clientY - rect.top;
+    dragStartTime = Date.now();
+    isDragging = false;
+    
+    // 设置定时器，检测是否为长按
+    dragTimer = setTimeout(() => {
+        isDragging = true;
+        selectionBox.style.display = 'block';
+        selectionBox.style.left = dragStartX + 'px';
+        selectionBox.style.top = dragStartY + 'px';
+        selectionBox.style.width = '0px';
+        selectionBox.style.height = '0px';
+    }, LONG_PRESS_DELAY);
+    
+    // 添加全局鼠标事件监听
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+}
+
+// 处理拖拽移动
+function handleDragMove(e) {
+    if (!isDragging) return;
+    
+    const rect = thumbnailGrid.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    // 计算选择框的位置和大小
+    const left = Math.min(dragStartX, currentX);
+    const top = Math.min(dragStartY, currentY);
+    const width = Math.abs(currentX - dragStartX);
+    const height = Math.abs(currentY - dragStartY);
+    
+    selectionBox.style.left = left + 'px';
+    selectionBox.style.top = top + 'px';
+    selectionBox.style.width = width + 'px';
+    selectionBox.style.height = height + 'px';
+    
+    // 检测哪些缩略图在选择框内
+    const items = document.querySelectorAll('.thumbnail-item');
+    items.forEach((item, idx) => {
+        const itemRect = item.getBoundingClientRect();
+        const gridRect = thumbnailGrid.getBoundingClientRect();
+        
+        const itemLeft = itemRect.left - gridRect.left;
+        const itemTop = itemRect.top - gridRect.top;
+        const itemRight = itemLeft + itemRect.width;
+        const itemBottom = itemTop + itemRect.height;
+        
+        // 检查是否相交
+        if (itemRight > left && itemLeft < (left + width) &&
+            itemBottom > top && itemTop < (top + height)) {
+            selectedIndices.add(idx);
+        }
+    });
+    
+    updateThumbnailGrid();
+}
+
+// 处理拖拽结束
+function handleDragEnd(e) {
+    clearTimeout(dragTimer);
+    document.removeEventListener('mousemove', handleDragMove);
+    document.removeEventListener('mouseup', handleDragEnd);
+    
+    if (isDragging) {
+        // 结束了框选模式
+        selectionBox.style.display = 'none';
+        isDragging = false;
+    } else {
+        // 这是一个快速点击，不做任何操作（双击才会进入编辑器）
+    }
+}
+
+// 全选功能
+function selectAll() {
+    uploadedImages.forEach((_, index) => {
+        selectedIndices.add(index);
+    });
+    updateThumbnailGrid();
+}
+
+// 取消全选
+function deselectAll() {
+    selectedIndices.clear();
+    updateThumbnailGrid();
+}
+
+// 更新批量操作按钮的显示状态
+function updateBatchButtons() {
+    const hasSelection = selectedIndices.size > 0;
+    const hasImages = uploadedImages.length > 0;
+    
+    if (hasImages) {
+        batchMaskUploadBtn.style.display = 'inline-flex';
+        clearSelectedMasksBtn.style.display = 'inline-flex';
+        
+        // 更新按钮文本
+        if (hasSelection) {
+            batchMaskUploadBtn.textContent = `为选中图片上传遮罩 (${selectedIndices.size})`;
+            clearSelectedMasksBtn.textContent = `清除选中遮罩 (${selectedIndices.size})`;
+            batchMaskUploadBtn.disabled = false;
+            clearSelectedMasksBtn.disabled = false;
+        } else {
+            batchMaskUploadBtn.textContent = '为所有图片上传遮罩';
+            clearSelectedMasksBtn.textContent = '清除所有遮罩';
+        }
+    } else {
+        batchMaskUploadBtn.style.display = 'none';
+        clearSelectedMasksBtn.style.display = 'none';
+    }
+}
+
+// 为选中的图片上传遮罩
+function handleBatchMaskUpload() {
+    if (uploadedImages.length === 0) {
+        alert('请先上传图片！');
+        return;
+    }
+    
+    // 创建临时的文件输入
+    const tempInput = document.createElement('input');
+    tempInput.type = 'file';
+    tempInput.accept = 'image/*';
+    tempInput.multiple = true;
+    tempInput.style.display = 'none';
+    document.body.appendChild(tempInput);
+    
+    tempInput.onchange = function(e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) {
+            document.body.removeChild(tempInput);
+            return;
+        }
+        
+        // 确定要处理的图片索引
+        let targetIndices;
+        if (selectedIndices.size > 0) {
+            targetIndices = Array.from(selectedIndices);
+            if (files.length !== targetIndices.length) {
+                alert(`选择的文件数量(${files.length})与选中的图片数量(${targetIndices.length})不匹配！`);
+                document.body.removeChild(tempInput);
+                return;
+            }
+        } else {
+            targetIndices = uploadedImages.map((_, idx) => idx);
+            if (files.length !== targetIndices.length) {
+                alert(`选择的文件数量(${files.length})与图片总数(${targetIndices.length})不匹配！`);
+                document.body.removeChild(tempInput);
+                return;
+            }
+        }
+        
+        // 按文件名排序以确保正确配对
+        const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
+        
+        let processedCount = 0;
+        targetIndices.forEach((imgIndex, fileIdx) => {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const maskImg = new Image();
+                maskImg.onload = function() {
+                    // 创建临时canvas来处理掩码
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 256;
+                    tempCanvas.height = 256;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // 绘制掩码图像
+                    tempCtx.drawImage(maskImg, 0, 0, 256, 256);
+                    const maskData = tempCtx.getImageData(0, 0, 256, 256);
+                    
+                    // 设置掩码
+                    uploadedImages[imgIndex].mask = maskData;
+                    uploadedImages[imgIndex].completed = true;
+                    uploadedImages[imgIndex].maskFile = sortedFiles[fileIdx];
+                    
+                    processedCount++;
+                    if (processedCount === targetIndices.length) {
+                        updateThumbnailGrid();
+                        statusPanel.innerHTML = `<strong>系统状态：</strong> 已为 ${targetIndices.length} 张图片上传遮罩！`;
+                    }
+                };
+                maskImg.src = event.target.result;
+            };
+            reader.readAsDataURL(sortedFiles[fileIdx]);
+        });
+        
+        document.body.removeChild(tempInput);
+    };
+    
+    tempInput.click();
+}
+
+// 清除选中图片的遮罩
+function clearSelectedMasks() {
+    let targetIndices;
+    if (selectedIndices.size > 0) {
+        targetIndices = Array.from(selectedIndices);
+    } else {
+        targetIndices = uploadedImages.map((_, idx) => idx);
+    }
+    
+    if (targetIndices.length === 0) {
+        alert('没有可清除的遮罩！');
+        return;
+    }
+    
+    if (!confirm(`确定要清除 ${targetIndices.length} 张图片的遮罩吗？`)) {
+        return;
+    }
+    
+    targetIndices.forEach(idx => {
+        uploadedImages[idx].mask = null;
+        uploadedImages[idx].completed = false;
+        uploadedImages[idx].maskFile = null;
+    });
+    
+    selectedIndices.clear();
+    updateThumbnailGrid();
+    statusPanel.innerHTML = `<strong>系统状态：</strong> 已清除 ${targetIndices.length} 张图片的遮罩。`;
 }
 
 function deleteImage(index) {
@@ -305,6 +605,9 @@ function deleteImage(index) {
     }
     
     uploadedImages.splice(index, 1);
+    
+    // 清除选择状态
+    selectedIndices.clear();
     
     // 如果当前正在编辑这张图片，关闭编辑器
     if (currentImageIndex === index) {
@@ -423,6 +726,7 @@ function clearAllData() {
     uploadedImages = [];
     currentImageIndex = -1;
     batchResults = [];
+    selectedIndices.clear();
     
     thumbnailGrid.innerHTML = '';
     thumbnailSection.classList.add('hidden');
@@ -1061,6 +1365,9 @@ function displayBatchResults(data) {
     repairedGrid.style.gridTemplateColumns = gridStyle;
     edgeGrid.style.gridTemplateColumns = gridStyle;
     originalGrid.style.gridTemplateColumns = gridStyle;
+    
+    // 初始化结果图片的高度CSS变量（保持正方形，高度等于宽度）
+    document.documentElement.style.setProperty('--result-image-height', initialSize + 'px');
     
     // 显示修复后的图片
     data.results.forEach((result, idx) => {

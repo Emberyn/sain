@@ -9,7 +9,7 @@
 <body>
 
 <header>
-    <h1>智慧农林：大豆叶片损伤智能修复与分析系统</h1>
+    <h1>智慧农林：面向大豆叶片损伤的图像修复系统</h1>
     <p>解决病斑遮挡导致识别率低的农业痛点 | 基于SAIN结构感知叶脉的深度学习修复</p>
 </header>
 
@@ -19,6 +19,8 @@
         <input type="file" id="maskUploadInput" accept="image/*" multiple style="display: none;">
         <button class="btn" id="uploadBtn" onclick="handleUploadClick()">上传图片 (最多20张)</button>
         <button class="btn" id="maskUploadBtn" onclick="handleMaskUploadClick()" style="display: none;">上传掩码文件</button>
+        <button class="btn" id="batchMaskUploadBtn" onclick="handleBatchMaskUpload()" style="display: none; background-color: #2196f3;">为选中图片上传遮罩</button>
+        <button class="btn" id="clearSelectedMasksBtn" onclick="clearSelectedMasks()" style="display: none; background-color: #ff5722;">清除选中遮罩</button>
         
         <div class="brush-size" id="brushSizeControl">
             <label for="brushSize">画笔大小:</label>
@@ -51,8 +53,10 @@
 
     <div id="thumbnailSection" class="hidden">
         <h3 style="margin-top: 20px;">已上传的图片 (<span id="imageCount">0</span>/20)</h3>
-        <p style="color: #666; margin-bottom: 15px;">点击缩略图绘制遮罩，或上传掩码文件，完成后会显示 ✓ 标记</p>
-        <div class="thumbnail-grid" id="thumbnailGrid"></div>
+        <p style="color: #666; margin-bottom: 15px;">双击图片绘制遮罩 | Ctrl+单击多选 | 长按拖拽框选 | 完成后会显示 ✓ 标记</p>
+        <div class="thumbnail-grid" id="thumbnailGrid" style="position: relative;">
+            <div class="selection-box" id="selectionBox"></div>
+        </div>
     </div>
 
     <div id="editorSection" class="hidden">
