@@ -1344,12 +1344,9 @@ async function submitBatchRepair() {
         uploadedImages.forEach((item, index) => {
             formData.append('images', item.file);
             
-            // 如果有上传的掩码文件，直接使用
-            if (item.maskFile) {
-                formData.append('masks', item.maskFile);
-                blobPromises.push(Promise.resolve());
-            } else {
-                // 否则从 canvas 创建掩码
+            // 只要有mask数据（无论是手绘还是上传合并后的），都用mask生成文件
+            if (item.mask && item.mask.data) {
+                // 从合并后的mask数据生成黑白掩码图片
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = maskCanvas.width;
                 tempCanvas.height = maskCanvas.height;
@@ -1370,7 +1367,27 @@ async function submitBatchRepair() {
                 }
                 tCtx.putImageData(tData, 0, 0);
                 
-                // 创建一个Promise来等待blob创建完成
+                const blobPromise = new Promise((resolve) => {
+                    tempCanvas.toBlob((blob) => {
+                        formData.append('masks', blob, `mask_${index}.png`);
+                        resolve();
+                    }, 'image/png');
+                });
+                blobPromises.push(blobPromise);
+            } else if (item.maskFile) {
+                // 如果没有mask数据但有maskFile，直接使用上传的文件
+                formData.append('masks', item.maskFile);
+                blobPromises.push(Promise.resolve());
+            } else {
+                // 没有任何掩码数据，创建空白掩码
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = maskCanvas.width;
+                tempCanvas.height = maskCanvas.height;
+                const tCtx = tempCanvas.getContext('2d');
+                
+                tCtx.fillStyle = '#000000';
+                tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
                 const blobPromise = new Promise((resolve) => {
                     tempCanvas.toBlob((blob) => {
                         formData.append('masks', blob, `mask_${index}.png`);
