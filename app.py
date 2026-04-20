@@ -228,6 +228,7 @@ def download_batch():
             return jsonify({'error': '缺少结果数据'}), 400
 
         results = data['results']
+        originals = data.get('originals', [])
         
         memory_file = io.BytesIO()
         
@@ -245,6 +246,14 @@ def download_batch():
                 edge_data = result['edge_image'].split(',')[1]
                 edge_bytes = base64.b64decode(edge_data)
                 zf.writestr(f'{filename_base}_edge.png', edge_bytes)
+
+            for orig in originals:
+                orig_filename_base = orig.get('filename', 'original').rsplit('.', 1)[0]
+                orig_data = orig.get('data', '')
+                if ',' in orig_data:
+                    orig_data = orig_data.split(',')[1]
+                orig_bytes = base64.b64decode(orig_data)
+                zf.writestr(f'{orig_filename_base}_original.png', orig_bytes)
 
         memory_file.seek(0)
         

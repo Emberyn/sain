@@ -1509,6 +1509,7 @@ function displayBatchResults(data) {
             <img src="${item.src}" alt="原始图片" data-index="${idx}" ondblclick="openModal(${idx})">
             <div class="card-title">${item.file.name}</div>
             <div style="font-size: 12px; color: #666; padding: 5px;">原始图片</div>
+            <button class="btn" style="margin: 5px; padding: 5px 10px; font-size: 14px; width: calc(100% - 10px);" onclick="downloadOriginalImage(${idx})">下载此图片</button>
         `;
         originalGrid.appendChild(card);
     });
@@ -1642,6 +1643,18 @@ function downloadEdgeImage(index) {
     document.body.removeChild(a);
 }
 
+function downloadOriginalImage(index) {
+    const item = uploadedImages[index];
+    if (!item) return;
+
+    const a = document.createElement('a');
+    a.href = item.src;
+    a.download = item.file.name.replace(/\.[^/.]+$/, '') + '_original.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
 // 重新上传功能 - 直接刷新页面
 function reuploadImages() {
     if (confirm('确定要重新上传新图片吗？当前所有数据和结果将被清除。')) {
@@ -1656,13 +1669,21 @@ async function downloadBatchResults() {
         return;
     }
 
+    const originals = uploadedImages.map((img) => ({
+        filename: img.file.name,
+        data: img.src
+    }));
+
     try {
         const response = await fetch('/api/download_batch', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ results: batchResults })
+            body: JSON.stringify({ 
+                results: batchResults,
+                originals: originals
+            })
         });
 
         if (response.ok) {
